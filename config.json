@@ -6,5 +6,5 @@
   "num_administradores": 1,
   "duracion_segundos": 30,
   "demo_monitor": true,
-  "demo_deadlock": true
+  "demo_deadlock": false
 }
