@@ -8,9 +8,8 @@
 #include <atomic>
 #include <memory>
 #include <fstream>
-#include <nlohmann/json.hpp>
-
-using json = nlohmann::json;
+#include <sstream>
+#include <string>
 
 // Estructura de configuración cargada desde JSON
 struct ConfiguracionApp {
@@ -41,25 +40,50 @@ ConfiguracionApp cargar_configuracion(const std::string& archivo) {
             return config;
         }
         
-        json j;
-        file >> j;
-        
-        if (j.contains("capacidad_cola")) 
-            config.capacidad_cola = j["capacidad_cola"];
-        if (j.contains("num_clientes")) 
-            config.num_clientes = j["num_clientes"];
-        if (j.contains("num_motores")) 
-            config.num_motores = j["num_motores"];
-        if (j.contains("num_analistas")) 
-            config.num_analistas = j["num_analistas"];
-        if (j.contains("num_administradores")) 
-            config.num_administradores = j["num_administradores"];
-        if (j.contains("duracion_segundos")) 
-            config.duracion_segundos = j["duracion_segundos"];
-        if (j.contains("demo_monitor")) 
-            config.demo_monitor = j["demo_monitor"];
-        if (j.contains("demo_deadlock")) 
-            config.demo_deadlock = j["demo_deadlock"];
+        // Lectura simple sin JSON (formato: clave=valor)
+        std::string linea;
+        while (std::getline(file, linea)) {
+            // Ignorar líneas vacías y comentarios
+            if (linea.empty() || linea[0] == '#' || linea[0] == '{' || linea[0] == '}') 
+                continue;
+            
+            // Buscar el formato "clave": valor
+            size_t pos_colon = linea.find(':');
+            if (pos_colon == std::string::npos) continue;
+            
+            // Extraer clave
+            size_t start_quote = linea.find('"');
+            size_t end_quote = linea.find('"', start_quote + 1);
+            if (start_quote == std::string::npos || end_quote == std::string::npos) continue;
+            
+            std::string clave = linea.substr(start_quote + 1, end_quote - start_quote - 1);
+            
+            // Extraer valor (después de los dos puntos)
+            std::string valor_str = linea.substr(pos_colon + 1);
+            
+            // Limpiar espacios y comas
+            valor_str.erase(0, valor_str.find_first_not_of(" \t"));
+            valor_str.erase(valor_str.find_last_not_of(" ,\t\n\r") + 1);
+            
+            // Asignar valores
+            if (clave == "capacidad_cola") {
+                config.capacidad_cola = std::stoi(valor_str);
+            } else if (clave == "num_clientes") {
+                config.num_clientes = std::stoi(valor_str);
+            } else if (clave == "num_motores") {
+                config.num_motores = std::stoi(valor_str);
+            } else if (clave == "num_analistas") {
+                config.num_analistas = std::stoi(valor_str);
+            } else if (clave == "num_administradores") {
+                config.num_administradores = std::stoi(valor_str);
+            } else if (clave == "duracion_segundos") {
+                config.duracion_segundos = std::stoi(valor_str);
+            } else if (clave == "demo_monitor") {
+                config.demo_monitor = (valor_str == "true");
+            } else if (clave == "demo_deadlock") {
+                config.demo_deadlock = (valor_str == "true");
+            }
+        }
         
         std::cout << "[CONFIG] Configuración cargada desde " << archivo << std::endl;
         
