@@ -1,0 +1,10 @@
+{
+  "capacidad_cola": 10,
+  "num_clientes": 2,
+  "num_motores": 3,
+  "num_analistas": 3,
+  "num_administradores": 1,
+  "duracion_segundos": 30,
+  "demo_monitor": true,
+  "demo_deadlock": true
+}
