@@ -1,709 +1,925 @@
-# 🏦 Simulador de Sistema Bancario Concurrente
+# Sistema Bancario Concurrente
 
-Implementación completa en C++ de un sistema bancario que demuestra los principales conceptos de programación concurrente y sincronización de hilos.
+[![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://isocpp.org/)
+[![Qt](https://img.shields.io/badge/Qt-5%2F6-green.svg)](https://www.qt.io/)
+[![License](https://img.shields.io/badge/License-Academic-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-lightgrey.svg)](README.md)
 
-## 📋 Conceptos Implementados
+**Simulador de conceptos de Sistemas Operativos con interfaz gráfica Qt y persistencia JSON**
 
-- ✅ **Productor-Consumidor**: Clientes generan transacciones, motores antifraude las procesan
-- ✅ **Lectores-Escritores**: Múltiples analistas leen, un administrador escribe
-- ✅ **Monitor**: Gestión segura de cuentas bancarias con sincronización
-- ✅ **Semáforos**: Control de acceso concurrente limitado (máximo 3 motores)
-- ✅ **Deadlock**: Demostración de provocación y resolución con `std::scoped_lock`
-
----
-
-## 📂 Estructura del Proyecto
-
-```
-ProyectoSO/
-├── include/                         # Archivos de cabecera
-│   ├── modelos.hpp                  # struct Transaccion
-│   ├── productor_consumidor.hpp     # Cola, Cliente, MotorAntifraude
-│   ├── lectores_escritores.hpp      # ConfiguracionSistema, Analistas, Admins
-│   ├── monitor.hpp                  # MonitorCuentas
-│   ├── deadlock.hpp                 # Demos de deadlock
-│   └── semaforo.hpp                 # Implementación de semáforo (C++17)
-├── src/                             # Código fuente
-│   ├── main.cpp                     # Orquestador principal
-│   ├── productor_consumidor.cpp     # Implementación Productor-Consumidor
-│   ├── lectores_escritores.cpp      # Implementación Lectores-Escritores
-│   ├── monitor.cpp                  # Implementación Monitor
-│   └── deadlock.cpp                 # Implementación demos deadlock
-├── config.json                      # Configuración de la simulación
-├── Makefile                         # Compilación para Linux
-├── Makefile.win                     # Compilación para Windows
-├── compilar.sh                      # Script automático (Linux/Mac)
-├── compilar.bat                     # Script automático (Windows)
-└── README.md                        # Este archivo
-```
+Proyecto académico que implementa patrones de concurrencia fundamentales (Productor-Consumidor, Lectores-Escritores, Semáforos, Monitores, Deadlocks) en un sistema bancario simulado.
 
 ---
 
-## 🔧 Requisitos del Sistema
+## Tabla de Contenidos
 
-### Requisitos Mínimos
-- **C++17** o superior
-- **g++ 7.0+** o **clang++ 5.0+**
-- **pthread** (incluido en Linux/Mac, MinGW en Windows)
-- **make** (opcional, para usar Makefile)
-
-### Sin Dependencias Externas
-✅ No requiere CMake  
-✅ No requiere librerías externas  
-✅ Solo estándar de C++17
-
----
-
-## 🚀 Compilación y Ejecución
-
-### 🐧 Linux (Arch, Ubuntu, Debian)
-
-#### Método 1: Con Makefile (Recomendado)
-```bash
-cd ProyectoSO
-make clean
-make
-./simulador
-```
-
-#### Método 2: Script Automático
-```bash
-chmod +x compilar.sh
-./compilar.sh
-./simulador
-```
-
-#### Método 3: Compilación Manual
-```bash
-g++ -std=c++17 -pthread -Wall -Wextra -O2 -I./include \
-    src/main.cpp \
-    src/productor_consumidor.cpp \
-    src/lectores_escritores.cpp \
-    src/monitor.cpp \
-    src/deadlock.cpp \
-    -o simulador
-./simulador
-```
-
-### Instalar dependencias en Linux
-
-**Arch Linux:**
-```bash
-sudo pacman -S base-devel gcc
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt update
-sudo apt install build-essential g++ make
-```
+- [Características](#características)
+- [Conceptos de SO Implementados](#conceptos-de-so-implementados)
+- [Instalación](#instalación)
+  - [Arch Linux](#arch-linux)
+  - [Ubuntu/Debian](#ubuntudebian)
+  - [Windows 10/11](#windows-1011)
+- [Compilación](#compilación)
+- [Modos de Ejecución](#modos-de-ejecución)
+- [Interfaz Gráfica Qt](#interfaz-gráfica-qt)
+- [Persistencia de Datos](#persistencia-de-datos)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Limpieza de Archivos](#limpieza-de-archivos)
+- [Documentación LaTeX](#documentación-latex)
 
 ---
 
-### 🪟 Windows
+## Características
 
-#### Método 1: MSYS2 (Recomendado)
+### 4 Modos de Ejecución
 
-1. **Instalar MSYS2** desde https://www.msys2.org/
+1. **GUI Qt** - Interfaz gráfica completa con widgets nativos (RECOMENDADO)
+2. **CLI Interactiva** - Control manual mediante menú de texto
+3. **GUI ASCII** - Interfaz visual en terminal con colores ANSI
+4. **CLI Automática** - Simulación automática de 30 segundos
 
-2. **Abrir MSYS2 MinGW 64-bit** y ejecutar:
-```bash
-pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make
-```
+### Características Técnicas
 
-3. **Navegar al proyecto y compilar:**
-```bash
-cd /c/Users/TU_USUARIO/ProyectoSO
-mingw32-make clean
-mingw32-make
-./simulador.exe
-```
-
-#### Método 2: Script Automático (Windows)
-```cmd
-compilar.bat
-simulador.exe
-```
-
-#### Método 3: MinGW Manual
-```cmd
-g++ -std=c++17 -pthread -Wall -Wextra -O2 -I./include ^
-    src/main.cpp ^
-    src/productor_consumidor.cpp ^
-    src/lectores_escritores.cpp ^
-    src/monitor.cpp ^
-    src/deadlock.cpp ^
-    -o simulador.exe
-
-simulador.exe
-```
+- Concurrencia real con `std::thread` de C++17
+- Sincronización thread-safe usando mutex, condition_variable, shared_mutex
+- Persistencia local con archivos JSON (sin dependencias externas)
+- Detección de fraude en transacciones sospechosas
+- Demostraciones interactivas de conceptos de SO
+- Multiplataforma (Linux y Windows)
 
 ---
 
-## ⚙️ Configuración
+## Conceptos de SO Implementados
 
-Edita `config.json` para personalizar la simulación:
+### 1. Patrón Productor-Consumidor
 
-```json
-{
-  "capacidad_cola": 10,
-  "num_clientes": 2,
-  "num_motores": 3,
-  "num_analistas": 3,
-  "num_administradores": 1,
-  "duracion_segundos": 30,
-  "demo_monitor": true,
-  "demo_deadlock": true
+**Clase**: `ColaTransacciones`
+
+- Buffer limitado de 10 elementos (std::queue)
+- Bloqueo de productores cuando la cola está llena
+- Bloqueo de consumidores cuando la cola está vacía
+- Cierre ordenado con desbloqueo de hilos
+
+**Primitivas**: `std::mutex`, `std::condition_variable`, `std::atomic<bool>`
+
+```cpp
+void producir(Transaccion t) {
+    unique_lock<mutex> lock(mtx);
+    cv_productor.wait(lock, [this] { 
+        return cola.size() < capacidad_maxima; 
+    });
+    cola.push(t);
+    cv_consumidor.notify_one();
 }
 ```
 
-### Parámetros
+### 2. Patrón Lectores-Escritores
 
-| Parámetro | Descripción | Valor por defecto |
-|-----------|-------------|-------------------|
-| `capacidad_cola` | Tamaño máximo del buffer de transacciones | 10 |
-| `num_clientes` | Cantidad de productores (clientes) | 2 |
-| `num_motores` | Cantidad de consumidores (motores antifraude) | 3 |
-| `num_analistas` | Cantidad de lectores (analistas financieros) | 3 |
-| `num_administradores` | Cantidad de escritores (administradores) | 1 |
-| `duracion_segundos` | Duración de la simulación principal | 30 |
-| `demo_monitor` | Ejecutar demostración del monitor | true |
-| `demo_deadlock` | Ejecutar demostración de deadlock | true |
+**Clase**: `ConfiguracionSistema`
 
----
+- Lecturas concurrentes - Múltiples hilos leen simultáneamente
+- Escritura exclusiva - Solo un escritor, sin lectores
+- Prioridad de escritores para evitar inanición
 
-## 🎯 Componentes Implementados
-
-### 1️⃣ Productor-Consumidor (Persona 2)
-
-**Archivos:** `productor_consumidor.hpp/cpp`, `modelos.hpp`
-
-- **ColaTransacciones**: Buffer limitado thread-safe con `std::mutex` y `std::condition_variable`
-- **Cliente (Productor)**: Genera transacciones bancarias aleatorias
-- **MotorAntifraude (Consumidor)**: Procesa y analiza transacciones
-
-**Conceptos:**
-- Buffer limitado
-- Bloqueo cuando está llena (productor) o vacía (consumidor)
-- Notificaciones con `condition_variable`
+**Primitivas**: `std::shared_mutex` (C++17)
 
 ```cpp
-// Ejemplo de uso
-ColaTransacciones cola(10);
-cola.producir(transaccion);  // Bloquea si está llena
-Transaccion t = cola.consumir();  // Bloquea si está vacía
+// Lectura compartida
+int leer(const string& clave) const {
+    shared_lock<shared_mutex> lock(mtx);
+    return configuraciones.at(clave);
+}
+
+// Escritura exclusiva
+void escribir(const string& clave, int valor) {
+    unique_lock<shared_mutex> lock(mtx);
+    configuraciones[clave] = valor;
+}
 ```
 
----
+### 3. Semáforo Contador
 
-### 2️⃣ Lectores-Escritores (Persona 3)
+**Clase**: `Semaforo` (implementación C++17 compatible)
 
-**Archivos:** `lectores_escritores.hpp/cpp`
+- Limita recursos concurrentes (máximo 3 motores antifraude)
+- `acquire()` - Decrementa contador, bloquea si es 0
+- `release()` - Incrementa contador, despierta hilos
+- `try_acquire()` - Intento no bloqueante
 
-- **ConfiguracionSistema**: Usa `std::shared_mutex` para acceso concurrente
-- **AnalistaFinanciero (Lector)**: Lee configuración sin bloqueo mutuo
-- **AdministradorSistema (Escritor)**: Modifica configuración exclusivamente
+### 4. Monitor (Patrón Monitor)
 
-**Conceptos:**
-- Múltiples lectores simultáneos con `std::shared_lock`
-- Un solo escritor con `std::unique_lock`
-- Bloqueo de escritores cuando hay lectores activos
+**Clase**: `MonitorCuentas`
+
+- Exclusión mutua automática en todos los métodos
+- Condiciones de espera para fondos suficientes
+- Transferencias atómicas entre cuentas
+- Thread-safe sin race conditions
 
 ```cpp
-// Lectura (múltiples lectores)
-std::shared_lock<std::shared_mutex> lock(mtx);
-// ... leer datos ...
-
-// Escritura (exclusiva)
-std::unique_lock<std::shared_mutex> lock(mtx);
-// ... modificar datos ...
+bool transferir(string origen, string destino, double monto) {
+    unique_lock<mutex> lock(mtx);
+    cv.wait(lock, [&] { return saldos[origen] >= monto; });
+    saldos[origen] -= monto;
+    saldos[destino] += monto;
+    cv.notify_all();
+    return true;
+}
 ```
+
+### 5. Deadlock (Interbloqueo)
+
+- **Provocar deadlock** - Ciclo de espera entre 2 hilos
+- **Resolver deadlock** - Uso de `std::scoped_lock`
+- **Condiciones de Coffman** demostradas visualmente
+- **Explicación paso a paso** en log con colores
 
 ---
 
-### 3️⃣ Semáforo (Persona 3)
+## Instalación
 
-**Archivo:** `semaforo.hpp`
+### Arch Linux
 
-- Implementación de semáforo contador para C++17
-- Limita acceso concurrente a recursos (máximo 3 motores antifraude)
-- Métodos `acquire()` y `release()`
+#### Paso 1: Instalar Dependencias
 
-**Conceptos:**
-- Control de acceso limitado
-- Espera bloqueante cuando no hay permisos
-- Notificación al liberar permisos
-
-```cpp
-Semaforo sem(3);  // Máximo 3 hilos concurrentes
-sem.acquire();    // Obtener permiso
-// ... usar recurso ...
-sem.release();    // Liberar permiso
-```
-
----
-
-### 4️⃣ Monitor (Persona 4)
-
-**Archivo:** `monitor.hpp/cpp`
-
-- **MonitorCuentas**: Encapsula saldos bancarios con sincronización interna
-- Métodos: `transferir()`, `depositar()`, `retirar()`, `consultar_saldo()`
-- Usa `std::mutex` y `std::condition_variable`
-
-**Conceptos:**
-- Encapsulación de datos compartidos
-- Sincronización interna automática
-- Espera bloqueante si no hay fondos suficientes
-
-```cpp
-MonitorCuentas monitor;
-monitor.transferir("CTA-001", "CTA-002", 500.0);
-double saldo = monitor.consultar_saldo("CTA-001");
-```
-
----
-
-### 5️⃣ Deadlock (Persona 4)
-
-**Archivo:** `deadlock.hpp/cpp`
-
-- **provocar_deadlock()**: Demuestra deadlock con locks en orden inverso
-- **resolver_deadlock()**: Previene deadlock con `std::scoped_lock`
-
-**Conceptos:**
-- Condiciones para deadlock (ciclo de espera)
-- Prevención con ordenamiento de locks
-- Adquisición atómica con `std::scoped_lock`
-
-```cpp
-// ❌ Deadlock
-std::lock_guard<std::mutex> lock1(mutex_A);
-std::lock_guard<std::mutex> lock2(mutex_B);
-
-// ✅ Sin deadlock
-std::scoped_lock lock(mutex_A, mutex_B);  // Atómico
-```
-
----
-
-## 📊 Salida Esperada
-
-Al ejecutar el programa:
-
-```
-================================================
-  SIMULADOR DE SISTEMA BANCARIO CONCURRENTE
-  Gestión de Transacciones con Concurrencia
-================================================
-
-========== CONFIGURACIÓN ==========
-Capacidad de cola: 10
-Número de clientes: 2
-Número de motores: 3
-Número de analistas: 3
-Número de administradores: 1
-Duración: 30 segundos
-===================================
-
-[MAIN] Iniciando hilos...
-
-[PRODUCTOR] Cliente CLI-1 añadió transacción #1 | Cola: 1/10
-[CONSUMIDOR] Motor #1 procesando transacción #1 de cliente CLI-1
-[LECTOR] Analista #1 leyó limite_transaccion = 10000
-[OK] Motor #1 aprobó transacción #1
-
-[ALERTA] Motor #2 detectó transacción sospechosa #5 | Monto: $8500.00
-
-[ESCRITOR] Administrador #1 va a modificar limite_transaccion
-[CONFIG] Actualizando limite_transaccion: 10000 -> 12500
-
-...
-
-[MAIN] Iniciando apagado ordenado...
-[CLIENTE] Cliente CLI-1 finalizó.
-[MOTOR] Motor Antifraude #1 finalizó.
-...
-
-============================================
-DEMO: MONITOR DE CUENTAS
-============================================
-
-[MONITOR] Transferencia: CTA-001 -> CTA-002 | Monto: $500.00
-
-========== ESTADO DE CUENTAS ==========
-CTA-001: $3500.00
-CTA-002: $3500.00
-========================================
-
-============================================
-DEMO 2: RESOLVIENDO DEADLOCK
-============================================
-
-[HILO 1] MUTEX A y B bloqueados ✓
-[HILO 2] MUTEX B y A bloqueados ✓
-
-✅ Ambos hilos completaron exitosamente.
-No hubo deadlock gracias a std::scoped_lock.
-```
-
----
-
-## 🔧 Solución de Problemas
-
-### ❌ Error: "pthread: No such file or directory"
-**Solución:** Usa el flag `-pthread` al compilar.
-
-### ❌ Error: "std::shared_mutex: No such file or directory"
-**Solución:** Actualiza tu compilador a GCC 7+ o Clang 5+
 ```bash
-# Verificar versión
+# Actualizar sistema
+sudo pacman -Syu
+
+# Instalar compilador C++, Qt6 y herramientas de compilación
+sudo pacman -S base-devel gcc qt6-base qt6-tools make
+```
+
+#### Paso 2: Verificar Instalación
+
+```bash
+# Verificar versión de g++
+g++ --version
+# Debe mostrar: g++ (GCC) 13.x.x o superior
+
+# Verificar Qt
+qmake --version
+# Debe mostrar: QMake version 3.1, Using Qt version 6.x.x
+
+# Verificar make
+make --version
+# Debe mostrar: GNU Make 4.x
+```
+
+#### Paso 3: Clonar Proyecto
+
+```bash
+# Clonar repositorio
+git clone https://github.com/Gocardi/ProyectoSO.git
+cd ProyectoSO
+
+# Verificar estructura
+ls -la
+# Debe mostrar: include/ src/ config.json README.md
+```
+
+---
+
+### Ubuntu/Debian
+
+#### Paso 1: Instalar Dependencias
+
+```bash
+# Actualizar repositorios
+sudo apt update
+
+# Instalar herramientas de compilación
+sudo apt install build-essential
+
+# Instalar Qt6 (Ubuntu 22.04+)
+sudo apt install qt6-base-dev qt6-tools-dev qt6-base-dev-tools
+
+# Si Qt6 no está disponible, usar Qt5
+sudo apt install qtbase5-dev qttools5-dev qttools5-dev-tools
+```
+
+#### Paso 2: Verificar Instalación
+
+```bash
+# Verificar g++
 g++ --version
 
-# Arch
-sudo pacman -S gcc
+# Verificar qmake
+qmake --version
 
-# Ubuntu
-sudo apt install g++-9
-export CXX=g++-9
+# Si usas Qt5, puede ser:
+qmake-qt5 --version
 ```
 
-### ❌ Warnings sobre variables no utilizadas
-**Solución:** Son solo warnings en `deadlock.cpp`, no errores. Puedes ignorarlos.
+#### Paso 3: Clonar y Configurar
 
-### ❌ Windows: "g++ no reconocido"
-**Solución:** Agrega MinGW/MSYS2 al PATH:
-- MinGW: `C:\MinGW\bin`
-- MSYS2: `C:\msys64\mingw64\bin`
+```bash
+git clone https://github.com/Gocardi/ProyectoSO.git
+cd ProyectoSO
 
-### ⚠️ El programa se congela
-**Solución:** Si ejecutaste `provocar_deadlock()`, es intencional. Usa `Ctrl+C` para terminar.
+# Si usas Qt5, editar simulador_bancario.pro si es necesario
+```
 
 ---
 
-## 👥 Asignación de Tareas por Persona
+### Windows 10/11
 
-### Persona 1: Orquestador
-**Archivos:** `main.cpp`
-- ✅ Lectura de `config.json` (parser simple sin librerías)
-- ✅ Gestión de hilos con `std::thread`
-- ✅ Apagado ordenado con `std::atomic<bool>`
-- ✅ Coordinación de todos los componentes
+#### Paso 1: Instalar MinGW-w64 con MSYS2
 
-### Persona 2: Productor-Consumidor
-**Archivos:** `modelos.hpp`, `productor_consumidor.hpp/cpp`
-- ✅ `struct Transaccion`
-- ✅ `ColaTransacciones` (buffer limitado thread-safe)
-- ✅ `Cliente` (Productor)
-- ✅ `MotorAntifraude` (Consumidor con semáforo)
+1. Descargar **MSYS2** desde: https://www.msys2.org/
+2. Ejecutar instalador: `msys2-x86_64-xxxxxxxx.exe`
+3. Instalar en: `C:\msys64` (ruta recomendada)
+4. Abrir terminal **MSYS2 MINGW64** (icono azul)
+5. Ejecutar los siguientes comandos:
 
-### Persona 3: Lectores-Escritores y Semáforos
-**Archivos:** `lectores_escritores.hpp/cpp`, `semaforo.hpp`
-- ✅ `ConfiguracionSistema` con `std::shared_mutex`
-- ✅ `AnalistaFinanciero` (Lector)
-- ✅ `AdministradorSistema` (Escritor)
-- ✅ `Semaforo` (implementación para C++17)
+```bash
+# Actualizar paquetes base
+pacman -Syu
+# Cerrar terminal cuando lo pida
 
-### Persona 4: Monitor y Deadlock
-**Archivos:** `monitor.hpp/cpp`, `deadlock.hpp/cpp`
-- ✅ `MonitorCuentas` con `std::mutex` y `condition_variable`
-- ✅ `provocar_deadlock()`: Demo de deadlock
-- ✅ `resolver_deadlock()`: Solución con `std::scoped_lock`
+# Volver a abrir MSYS2 MINGW64 y ejecutar:
+pacman -Su
 
----
+# Instalar toolchain completo
+pacman -S mingw-w64-x86_64-toolchain
 
-## 📚 Detalles Técnicos
+# Instalar Qt6
+pacman -S mingw-w64-x86_64-qt6
 
-### Mecanismos de Sincronización
+# Instalar make
+pacman -S make
+```
 
-| Componente | Mecanismo | Descripción |
-|-----------|-----------|-------------|
-| ColaTransacciones | `std::mutex` + `condition_variable` | Buffer limitado bloqueante |
-| ConfiguracionSistema | `std::shared_mutex` | Múltiples lectores, escritor exclusivo |
-| MotorAntifraude | `Semaforo` (custom) | Limita a 3 motores concurrentes |
-| MonitorCuentas | `std::mutex` + `condition_variable` | Monitor con espera condicional |
-| Deadlock | `std::scoped_lock` | Prevención de deadlock |
+#### Paso 2: Configurar Variables de Entorno
 
-### Características de C++17 Utilizadas
+1. Presionar `Win + R`, escribir `sysdm.cpl`, presionar Enter
+2. Ir a pestaña **"Opciones avanzadas"**
+3. Hacer clic en **"Variables de entorno"**
+4. En **"Variables del sistema"**, buscar la variable `Path`
+5. Seleccionar `Path` y hacer clic en **"Editar"**
+6. Hacer clic en **"Nuevo"** y agregar las siguientes rutas:
+   - `C:\msys64\mingw64\bin`
+   - `C:\msys64\usr\bin`
+7. Hacer clic en **"Aceptar"** en todas las ventanas
+8. **Reiniciar** el terminal o sistema
 
-- ✅ `std::shared_mutex` - Para lectores-escritores
-- ✅ `std::scoped_lock` - Para prevenir deadlock
-- ✅ `std::atomic<bool>` - Para señalización entre hilos
-- ✅ `std::thread` - Para crear hilos
-- ✅ `std::condition_variable` - Para esperas bloqueantes
+#### Paso 3: Verificar Instalación
 
----
+Abrir **PowerShell** o **cmd**:
 
-## 🎓 Conceptos de Sistemas Operativos Demostrados
+```cmd
+:: Verificar g++
+g++ --version
+:: Debe mostrar: g++ (Rev...) 13.x.x
 
-1. **Sincronización de Hilos**: Mutex, locks, semáforos
-2. **Problemas Clásicos**: Productor-Consumidor, Lectores-Escritores
-3. **Deadlock**: Detección y prevención
-4. **Monitores**: Encapsulación de sincronización
-5. **Condiciones de Carrera**: Prevención con locks
-6. **Exclusión Mutua**: Con diferentes mecanismos
-7. **Comunicación entre Procesos**: A través de memoria compartida
+:: Verificar qmake
+qmake --version
+:: Debe mostrar: QMake version 3.1, Using Qt version 6.x.x
 
----
+:: Verificar make
+mingw32-make --version
+:: Debe mostrar: GNU Make 4.x
+```
 
-## 📖 Referencias
+#### Paso 4: Clonar Proyecto
 
-- [C++ Concurrency in Action](https://www.manning.com/books/c-plus-plus-concurrency-in-action-second-edition)
-- [C++17 std::shared_mutex](https://en.cppreference.com/w/cpp/thread/shared_mutex)
-- [C++17 std::scoped_lock](https://en.cppreference.com/w/cpp/thread/scoped_lock)
-- [Productor-Consumidor](https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem)
-- [Lectores-Escritores](https://en.wikipedia.org/wiki/Readers%E2%80%93writers_problem)
+```cmd
+:: Clonar repositorio
+git clone https://github.com/Gocardi/ProyectoSO.git
+cd ProyectoSO
 
----
+:: Listar archivos
+dir
+```
 
-## 📝 Licencia
+#### Alternativa: Qt Installer (Método Gráfico)
 
-Este proyecto es una implementación educativa para el curso de Sistemas Operativos.
+Si prefieres un instalador gráfico con IDE incluido:
 
-**Autor**: Equipo ProyectoSO  
-**Fecha**: Noviembre 2025  
-**Versión**: 1.0
-
----
-
-## 🆘 Ayuda Adicional
-
-Para más ayuda:
-
-1. **Verifica soporte de C++17:**
-   ```bash
-   echo "#include <shared_mutex>" | g++ -std=c++17 -x c++ - -c -o /dev/null
-   ```
-
-2. **Compila en modo debug:**
-   ```bash
-   make clean
-   make CXXFLAGS="-std=c++17 -Wall -Wextra -pthread -g"
-   ```
-
-3. **Ejecuta con valgrind (detectar memory leaks):**
-   ```bash
-   valgrind --leak-check=full ./simulador
-   ```
+1. Descargar **Qt Online Installer**: https://www.qt.io/download-qt-installer
+2. Ejecutar instalador e iniciar sesión (crear cuenta gratuita)
+3. En la selección de componentes, elegir:
+   - **Qt 6.x.x** para Windows
+   - **MinGW 11.2.0 64-bit** (compilador)
+   - **Qt Creator** (IDE opcional pero recomendado)
+   - **Qt 5 Compatibility Module** (opcional)
+4. Instalar en: `C:\Qt` (ruta por defecto)
+5. Agregar al PATH las rutas:
+   - `C:\Qt\6.x.x\mingw_64\bin`
+   - `C:\Qt\Tools\mingw1120_64\bin`
+6. Reiniciar terminal
 
 ---
 
-**¡Disfruta explorando la programación concurrente! 🚀**
-mkdir build
-cd build
+## Compilación
 
-# Configurar con CMake
-cmake ..
+### Opción 1: GUI Qt (RECOMENDADO)
 
-# Compilar
+#### Linux (Arch/Ubuntu)
+
+```bash
+cd ProyectoSO
+
+# Usar script de compilación
+chmod +x compilar_qt.sh
+./compilar_qt.sh
+
+# O manualmente:
+qmake simulador_bancario.pro
+make -j$(nproc)
+
+# Ejecutar
+./simulador_qt
+```
+
+#### Windows
+
+```cmd
+cd ProyectoSO
+
+:: Generar Makefile
+qmake simulador_bancario.pro
+
+:: Compilar (usar número de cores disponibles)
+mingw32-make -j4
+
+:: Ejecutar
+simulador_qt.exe
+```
+
+### Opción 2: Versiones CLI
+
+#### Linux
+
+```bash
+# Compilar todas las versiones
 make
+
+# O individualmente:
+make simulador                # CLI automática (30s)
+make simulador_interactivo    # CLI con menú
+make simulador_gui            # GUI ASCII
 
 # Ejecutar
 ./simulador
+./simulador_interactivo
+./simulador_gui
 ```
 
-### Opción 2: Compilación manual
+#### Windows
+
+```cmd
+:: Usar Makefile de Windows
+mingw32-make -f Makefile.win
+
+:: O compilar manualmente cada versión:
+g++ -std=c++17 -Iinclude src/main.cpp src/productor_consumidor.cpp src/lectores_escritores.cpp src/monitor.cpp src/deadlock.cpp -o simulador.exe -pthread
+
+g++ -std=c++17 -Iinclude src/main_interactivo.cpp src/productor_consumidor.cpp src/lectores_escritores.cpp src/monitor.cpp src/deadlock.cpp src/simulador_interactivo.cpp -o simulador_interactivo.exe -pthread
+
+g++ -std=c++17 -Iinclude src/main_gui.cpp src/productor_consumidor.cpp src/lectores_escritores.cpp src/monitor.cpp src/deadlock.cpp src/gui_basica.cpp -o simulador_gui.exe -pthread
+
+:: Ejecutar
+simulador.exe
+simulador_interactivo.exe
+simulador_gui.exe
+```
+
+---
+
+## Modos de Ejecución
+
+### 1. GUI Qt (RECOMENDADO)
 
 ```bash
-g++ -std=c++17 -pthread \
-    -I./include \
-    src/main.cpp \
-    src/productor_consumidor.cpp \
-    src/lectores_escritores.cpp \
-    src/monitor.cpp \
-    src/deadlock.cpp \
-    -o simulador
+# Linux
+./simulador_qt
 
-./simulador
+# Windows
+simulador_qt.exe
 ```
 
-**Nota**: La compilación manual requiere tener `nlohmann/json` instalado o incluir el header directamente.
+**4 Tabs disponibles**:
 
-## Configuración
+#### Tab 1: Gestión de Usuarios
+- Crear nuevos usuarios con saldo inicial
+- Ver lista completa con saldos actuales
+- Actualizar tabla en tiempo real
+- Seleccionar usuario para transacciones
 
-Edita `config.json` para ajustar los parámetros de la simulación:
+**Columnas**: Nombre | Cuenta ID | Saldo | Fecha Creación
+
+#### Tab 2: Transacciones
+- Enviar transferencias entre usuarios
+- Ver historial completo de transacciones
+- Visualizar transacciones sospechosas (fondo amarillo)
+- Validación automática de fondos
+
+**Columnas**: ID | Origen | Destino | Monto | Tipo | Sospechosa | Fecha
+
+**Reglas de detección de fraude**:
+- Monto > $8,000 = Sospechosa
+- Retiro > $5,000 = Sospechosa
+
+#### Tab 3: Estadísticas y Monitoreo
+**Métricas en tiempo real**:
+- Total de transacciones procesadas
+- Transacciones aprobadas (verde)
+- Transacciones sospechosas (naranja)
+- Monto total procesado
+- Tamaño actual de la cola (X/10)
+
+**Control**: Iniciar/Detener procesamiento automático
+
+**Log de actividad**: Con timestamps y colores (éxito/error/warning)
+
+#### Tab 4: Demostraciones
+
+**Demostraciones interactivas con explicación paso a paso**:
+
+##### 1. Provocar Deadlock
+- Simula interbloqueo entre 2 hilos
+- Muestra ciclo de espera paso a paso
+- Explica condiciones de Coffman
+- Log detallado: Thread 1 espera Thread 2, Thread 2 espera Thread 1
+
+##### 2. Resolver Deadlock
+- Usa `std::scoped_lock` para prevención
+- Adquisición atómica de múltiples mutex
+- Compara con versión con deadlock
+- Explica algoritmo de ordenamiento interno
+
+##### 3. Demostrar Semáforo
+- Limita 3 motores antifraude simultáneos
+- Simula 5 transacciones compitiendo por recursos
+- Muestra bloqueo cuando no hay recursos disponibles
+- Muestra liberación y reasignación de recursos
+
+##### 4. Demostrar Lectores-Escritores
+- Múltiples lectores acceden simultáneamente
+- Escritor requiere acceso exclusivo
+- Lectores esperan cuando hay escritor activo
+- Explica `shared_lock` vs `unique_lock`
+
+**Características del log de demostraciones**:
+- Timestamps en cada línea
+- Verde (éxito), Rojo (error), Naranja (warning), Azul (info)
+- Explicaciones pedagógicas detalladas
+- Ejecución en hilos separados (no bloquea UI)
+
+---
+
+### 2. CLI Interactiva
+
+```bash
+# Linux
+./simulador_interactivo
+
+# Windows
+simulador_interactivo.exe
+```
+
+**Menú principal**:
+```
+===========================================
+    SIMULADOR BANCARIO INTERACTIVO
+===========================================
+
+[1] Crear usuario
+[2] Listar usuarios
+[3] Enviar transacción
+[4] Consultar saldo
+[5] Ver estadísticas
+[0] Salir
+```
+
+**Funcionalidades**:
+- Crear usuarios con nombre y saldo inicial
+- Listar todos los usuarios con sus saldos
+- Enviar transferencias manuales entre usuarios
+- Consultar saldo de un usuario específico
+- Ver estadísticas de transacciones procesadas
+
+**Usuarios preconfigurados**:
+- Juan - CTA-Juan - $10,000
+- Maria - CTA-Maria - $15,000
+- Pedro - CTA-Pedro - $8,000
+- Ana - CTA-Ana - $12,000
+- Luis - CTA-Luis - $20,000
+
+---
+
+### 3. GUI ASCII
+
+```bash
+# Linux
+./simulador_gui
+
+# Windows
+simulador_gui.exe
+```
+
+Interfaz visual en terminal usando códigos ANSI con:
+- Dashboard con estadísticas
+- Panel de usuarios con colores
+- Panel de transacciones
+- Formularios interactivos
+
+---
+
+### 4. CLI Automática
+
+```bash
+# Linux
+./simulador
+
+# Windows
+simulador.exe
+```
+
+Simula 30 segundos de operación automática con:
+- 5 clientes generando transacciones
+- 3 motores antifraude procesando
+- Lectores/escritores de configuración
+- Analista financiero consultando
+- Administrador modificando configuración
+
+---
+
+## Persistencia de Datos
+
+### Archivos JSON
+
+El sistema usa 2 archivos JSON:
+
+#### `usuarios.json`
+```json
+[
+  {
+    "nombre": "Juan",
+    "cuenta_id": "CTA-Juan",
+    "saldo": 10000.00,
+    "fecha_creacion": "2025-11-09 12:00:00"
+  }
+]
+```
+
+#### `transacciones.json`
+```json
+[
+  {
+    "id": 1,
+    "usuario_origen": "Juan",
+    "usuario_destino": "Maria",
+    "monto": 500.00,
+    "tipo": "TRANSFERENCIA",
+    "es_sospechosa": false,
+    "fecha": "2025-11-09 12:05:30"
+  }
+]
+```
+
+### Clase DatabaseJSON
+
+**Operaciones disponibles**:
+- `guardar_usuario()` - Crea nuevo usuario
+- `actualizar_saldo()` - Modifica saldo
+- `cargar_usuarios()` - Lee todos los usuarios
+- `guardar_transaccion()` - Registra transacción
+- `cargar_transacciones(limite)` - Lee historial
+- `cargar_transacciones_usuario()` - Filtra por usuario
+- `exportar_backup(dir)` - Crea backup con timestamp
+
+**Thread-Safety**: Todas las operaciones usan `std::lock_guard<std::mutex>`
+
+---
+
+## Estructura del Proyecto
+
+```
+ProyectoSO/
+│
+├── include/                       # Headers (10 archivos)
+│   ├── modelos.hpp                # Estructura Transaccion
+│   ├── productor_consumidor.hpp   # Cola + Cliente + Motor
+│   ├── lectores_escritores.hpp    # ConfiguracionSistema
+│   ├── monitor.hpp                # MonitorCuentas
+│   ├── deadlock.hpp               # Demostraciones deadlock
+│   ├── semaforo.hpp               # Semáforo C++17
+│   ├── database_json.hpp          # Persistencia JSON
+│   ├── simulador_interactivo.hpp  # Lógica CLI interactiva
+│   ├── gui_basica.hpp             # GUI ASCII
+│   └── mainwindow.hpp             # Ventana principal Qt
+│
+├── src/                           # Implementaciones (12 archivos)
+│   ├── main.cpp                   # CLI automática
+│   ├── main_interactivo.cpp       # CLI interactiva
+│   ├── main_gui.cpp               # GUI ASCII
+│   ├── main_qt.cpp                # GUI Qt
+│   ├── mainwindow.cpp             # Ventana Qt (700+ líneas)
+│   ├── database_json.cpp          # Persistencia (300+ líneas)
+│   ├── gui_basica.cpp             # GUI ASCII
+│   ├── simulador_interactivo.cpp  # Lógica interactiva
+│   ├── productor_consumidor.cpp   # Prod-Cons (200+ líneas)
+│   ├── lectores_escritores.cpp    # Lect-Escrit
+│   ├── monitor.cpp                # Monitor (150+ líneas)
+│   └── deadlock.cpp               # Demos deadlock
+│
+├── Configuración
+│   ├── config.json                # Configuración del sistema
+│   ├── simulador_bancario.pro     # Proyecto Qt (qmake)
+│   ├── Makefile                   # Build CLI (Linux)
+│   ├── Makefile.win               # Build CLI (Windows)
+│   ├── compilar.sh                # Script Linux
+│   ├── compilar.bat               # Script Windows
+│   └── compilar_qt.sh             # Script Qt
+│
+├── Documentación
+│   ├── README.md                  # Este archivo
+│   └── documentacion.tex          # LaTeX (70+ páginas)
+│
+└── Datos (generados en runtime)
+    ├── usuarios.json              # BD de usuarios
+    └── transacciones.json         # Historial
+```
+
+---
+
+## Limpieza de Archivos
+
+### Archivos Generados (Pueden Eliminarse)
+
+```bash
+# Directorios de compilación
+rm -rf obj/              # Archivos objeto (.o)
+rm -rf moc/              # Meta-Object Compiler (Qt)
+rm -rf ui/               # UI generados (Qt Designer)
+
+# Ejecutables
+rm -f simulador                  # CLI automática
+rm -f simulador_interactivo     # CLI interactiva
+rm -f simulador_gui             # GUI ASCII
+rm -f simulador_qt              # GUI Qt
+
+# Archivos temporales
+rm -f .qmake.stash
+rm -f Makefile.Debug
+rm -f Makefile.Release
+rm -f *~ *.swp .DS_Store
+```
+
+### Datos de Ejemplo (Opcional)
+
+```bash
+# ADVERTENCIA: Eliminar solo si quieres empezar desde cero
+rm -f usuarios.json           # Perderás usuarios creados
+rm -f transacciones.json      # Perderás historial
+```
+
+### Comando de Limpieza Completa
+
+```bash
+# Limpieza segura (solo archivos compilados)
+make clean
+rm -rf moc obj ui .qmake.stash
+rm -f simulador simulador_interactivo simulador_gui simulador_qt
+
+# Limpieza total (incluye datos) - ADVERTENCIA
+make clean
+rm -rf moc obj ui .qmake.stash
+rm -f simulador* *.json
+```
+
+### Archivos que SI Debes Mantener
+
+**NO ELIMINES**:
+- `include/*.hpp` - Headers del código fuente
+- `src/*.cpp` - Implementaciones
+- `config.json` - Configuración del sistema
+- `*.pro` - Proyecto Qt
+- `Makefile*` - Build systems
+- `README.md` - Documentación
+- `documentacion.tex` - LaTeX
+
+---
+
+## Documentación LaTeX
+
+El proyecto incluye documentación profesional de **70+ páginas** en LaTeX.
+
+### Compilar PDF
+
+```bash
+cd ProyectoSO
+
+# Primera compilación
+pdflatex documentacion.tex
+
+# Segunda compilación (para referencias cruzadas)
+pdflatex documentacion.tex
+
+# Resultado: documentacion.pdf
+```
+
+### Contenido del Documento
+
+1. **Introducción** - Objetivos y tecnologías
+2. **Arquitectura** - Diagramas de componentes y flujo
+3. **Conceptos de SO** - Explicación detallada con código
+4. **Implementación** - Pseudocódigo de cada patrón
+5. **Interfaz Qt** - Screenshots y guía de uso
+6. **Persistencia JSON** - Estructura y operaciones
+7. **Casos de Uso** - Ejemplos paso a paso
+8. **Pruebas** - Validación de concurrencia
+9. **Limitaciones** - Mejoras futuras
+10. **Código Fuente** - Funciones clave comentadas
+11. **Referencias** - Bibliografía académica
+
+---
+
+## Ejemplos de Uso
+
+### Ejemplo 1: Crear Usuario y Transferir (GUI Qt)
+
+```bash
+./simulador_qt
+
+# Tab "Usuarios"
+-> Nombre: "Pedro"
+-> Saldo inicial: $20,000
+-> Click "Crear Usuario"
+
+# Tab "Transacciones"
+-> Origen: "Juan"
+-> Destino: "Pedro"
+-> Monto: $1,500
+-> Click "Enviar Transacción"
+
+# Resultado: Transferencia exitosa, JSON actualizado
+```
+
+### Ejemplo 2: Demostrar Deadlock (GUI Qt)
+
+```bash
+# Tab "Demostraciones"
+
+# Provocar Deadlock
+-> Click "Provocar Deadlock"
+-> Log muestra: Thread 1 espera Thread 2
+-> Log muestra: Thread 2 espera Thread 1
+-> Deadlock detectado!
+
+# Resolver Deadlock
+-> Click "Resolver Deadlock"
+-> Log muestra: std::scoped_lock adquiere ambos mutex
+-> Sin ciclo de espera, transacciones completan
+```
+
+### Ejemplo 3: Transacción Sospechosa
+
+```bash
+# GUI Qt - Tab "Transacciones"
+-> Origen: "Maria"
+-> Destino: "Ana"
+-> Monto: $10,000  # > $8,000
+
+# Resultado:
+-> Marcada como sospechosa
+-> Fondo amarillo en tabla
+-> Contador de sospechosas incrementa
+-> Log: "Transacción sospechosa detectada"
+```
+
+### Ejemplo 4: CLI Interactiva
+
+```bash
+./simulador_interactivo
+
+# Opción [1] - Crear usuario
+-> Nombre: Carlos
+-> Saldo: 5000
+-> Usuario creado: CTA-Carlos
+
+# Opción [3] - Enviar transacción
+-> Usuario origen: Juan
+-> Usuario destino: Carlos
+-> Monto: 500
+-> Transferencia exitosa
+
+# Opción [5] - Ver estadísticas
+-> Transacciones procesadas: 1
+-> Aprobadas: 1
+-> Sospechosas: 0
+```
+
+---
+
+## Tecnologías
+
+| Tecnología | Versión | Uso |
+|------------|---------|-----|
+| **C++** | 17 | Lenguaje base |
+| **Qt** | 5/6 | Framework GUI |
+| **std::thread** | C++11 | Hilos nativos |
+| **std::mutex** | C++11 | Exclusión mutua |
+| **std::shared_mutex** | C++17 | Lectores-Escritores |
+| **std::condition_variable** | C++11 | Sincronización |
+| **std::atomic** | C++11 | Variables atómicas |
+| **std::scoped_lock** | C++17 | Prevención deadlock |
+| **qmake** | - | Build Qt |
+| **Make** | - | Build CLI |
+
+---
+
+## Configuración (config.json)
 
 ```json
 {
-  "capacidad_cola": 10,           // Tamaño máximo del buffer de transacciones
-  "num_clientes": 2,              // Número de productores (clientes)
-  "num_motores": 3,               // Número de consumidores (motores antifraude)
-  "num_analistas": 3,             // Número de lectores
-  "num_administradores": 1,       // Número de escritores
-  "duracion_segundos": 30,        // Duración de la simulación
-  "demo_monitor": true,           // Ejecutar demo del monitor
-  "demo_deadlock": true           // Ejecutar demo de deadlock
+  "capacidad_cola": 10,              // Tamaño buffer Prod-Cons
+  "num_clientes": 5,                 // Productores
+  "num_motores": 3,                  // Consumidores + límite semáforo
+  "delay_cliente_ms": 1000,          // Intervalo producción
+  "delay_motor_ms": 1500,            // Tiempo procesamiento
+  "duracion_simulacion_segundos": 30,// Tiempo CLI auto
+  "max_transacciones_simultaneas": 100,
+  "timeout_transaccion_segundos": 30,
+  "modo_antifraude": true,           // Detección activa
+  "demo_deadlock": false             // Activar demo deadlock
 }
 ```
 
-## Uso
+---
 
-### Ejecución básica
+## Referencias
 
-```bash
-./simulador
-```
+1. Tanenbaum, A. S. (2014). *Modern Operating Systems* (4th ed.)
+2. Silberschatz, A. (2018). *Operating System Concepts* (10th ed.)
+3. Williams, A. (2019). *C++ Concurrency in Action* (2nd ed.)
+4. ISO/IEC 14882:2017 - C++17 Standard
+5. Qt Documentation - https://doc.qt.io/
+6. Dijkstra, E. W. (1965). *Concurrent Programming*
+7. Hoare, C. A. R. (1974). *Monitors*
+8. Coffman, E. G. (1971). *System Deadlocks*
 
-### Ejecución con archivo de configuración personalizado
+---
 
-```bash
-./simulador mi_config.json
-```
+## Aprendizajes Clave
 
-## Componentes Implementados
+### Sincronización
+- Uso correcto de `std::condition_variable` con predicados  
+- Prevención de deadlocks con `std::scoped_lock`  
+- Lectores-Escritores con `std::shared_mutex`  
+- Semáforos personalizados en C++17  
 
-### 1. Productor-Consumidor (ColaTransacciones)
+### Buenas Prácticas
+- RAII para gestión automática de recursos  
+- Thread-safety en todas las operaciones críticas  
+- Separación de capas (presentación/lógica/datos)  
+- Código documentado con comentarios  
+- Multiplataforma (Linux/Windows)  
 
-**Persona 2**: Implementa un buffer limitado thread-safe.
+---
 
-- **ColaTransacciones**: Cola con `std::mutex` y `std::condition_variable`
-- **Cliente** (Productor): Genera transacciones bancarias aleatorias
-- **MotorAntifraude** (Consumidor): Procesa y analiza transacciones
+## Mejoras Futuras
 
-**Conceptos**: 
-- Buffer limitado
-- Bloqueo cuando está llena (productor) o vacía (consumidor)
-- Notificaciones con `condition_variable`
+### Corto Plazo
+- [ ] Migrar a SQLite para mejor I/O
+- [ ] Autenticación con hash bcrypt
+- [ ] Logs rotativos
+- [ ] Gráficos Qt Charts
 
-### 2. Lectores-Escritores (ConfiguracionSistema)
+### Mediano Plazo
+- [ ] Arquitectura cliente-servidor (TCP)
+- [ ] Protocolo JSON-RPC
+- [ ] Balanceo de carga
+- [ ] Replicación maestro-esclavo
 
-**Persona 3**: Gestiona configuración con acceso concurrente.
+### Largo Plazo
+- [ ] Microservicios
+- [ ] RabbitMQ/Kafka
+- [ ] CQRS pattern
+- [ ] Kubernetes deployment
 
-- **ConfiguracionSistema**: Usa `std::shared_mutex` (C++17)
-- **AnalistaFinanciero** (Lector): Lee configuración sin bloqueo mutuo
-- **AdministradorSistema** (Escritor): Modifica configuración exclusivamente
+---
 
-**Conceptos**:
-- Múltiples lectores simultáneos
-- Un solo escritor (bloquea lectores y otros escritores)
-- `std::shared_lock` vs `std::unique_lock`
+## Autor
 
-### 3. Semáforo
+**Proyecto Académico de Sistemas Operativos**  
+Implementación de conceptos de concurrencia y sincronización
 
-**Persona 3**: Limita acceso concurrente a recursos.
-
-- `std::counting_semaphore<3>`: Máximo 3 motores procesando simultáneamente
-- `acquire()` antes de procesar
-- `release()` después de procesar
-
-### 4. Monitor (MonitorCuentas)
-
-**Persona 4**: Encapsula estado y sincronización.
-
-- **MonitorCuentas**: Gestiona saldos con `std::mutex` y `std::condition_variable`
-- Métodos sincronizados: `transferir()`, `depositar()`, `retirar()`
-- Espera bloqueante si no hay fondos suficientes
-
-**Conceptos**:
-- Encapsulación de datos compartidos
-- Sincronización interna
-- Variables de condición para esperas
-
-### 5. Deadlock
-
-**Persona 4**: Demostración de deadlock y su resolución.
-
-- **provocar_deadlock()**: Dos hilos bloquean mutex en orden inverso
-- **resolver_deadlock()**: Usa `std::scoped_lock` (C++17) para prevenir deadlock
-
-**Conceptos**:
-- Condiciones para deadlock
-- Prevención con ordenamiento de locks
-- Adquisición atómica de múltiples locks
-
-## Salida Esperada
-
-El programa mostrará:
-
-```
-================================================
-  SIMULADOR DE SISTEMA BANCARIO CONCURRENTE
-  Gestión de Transacciones con Concurrencia
-================================================
-
-========== CONFIGURACIÓN ==========
-Capacidad de cola: 10
-Número de clientes: 2
-Número de motores: 3
-...
-
-[PRODUCTOR] Cliente CLI-1 añadió transacción #1 | Cola: 1/10
-[CONSUMIDOR] Motor #1 procesando transacción #1 de cliente CLI-1
-[LECTOR] Analista #1 leyó limite_transaccion = 10000
-[ESCRITOR] Administrador #1 va a modificar limite_transaccion
-...
-
-[MAIN] Iniciando apagado ordenado...
-[MAIN] Todos los hilos finalizados.
-
-============================================
-DEMO: MONITOR DE CUENTAS
-============================================
-...
-```
-
-## Detalles Técnicos
-
-### Sincronización Implementada
-
-| Componente | Mecanismo | Descripción |
-|-----------|-----------|-------------|
-| ColaTransacciones | `std::mutex` + `condition_variable` | Buffer limitado bloqueante |
-| ConfiguracionSistema | `std::shared_mutex` | Lectores múltiples, escritor exclusivo |
-| MotorAntifraude | `std::counting_semaphore<3>` | Limita acceso concurrente |
-| MonitorCuentas | `std::mutex` + `condition_variable` | Monitor con espera condicional |
-| Deadlock | `std::scoped_lock` | Prevención de deadlock |
-
-### Características C++17
-
-- `std::shared_mutex`: Para lectores-escritores
-- `std::scoped_lock`: Para prevenir deadlock
-- `std::counting_semaphore`: Para limitar concurrencia (C++20, puede requerir ajuste)
-
-**Nota**: Si tu compilador no soporta `std::counting_semaphore` (C++20), puedes implementarlo con `std::mutex` y `std::condition_variable`.
-
-## Resolución de Problemas
-
-### Error: `std::counting_semaphore` no encontrado
-
-Si usas C++17 y no C++20, reemplaza el semáforo con una implementación manual:
-
-```cpp
-class Semaphore {
-    std::mutex mtx;
-    std::condition_variable cv;
-    int count;
-public:
-    Semaphore(int count) : count(count) {}
-    void acquire() {
-        std::unique_lock<std::mutex> lock(mtx);
-        cv.wait(lock, [this]() { return count > 0; });
-        --count;
-    }
-    void release() {
-        std::lock_guard<std::mutex> lock(mtx);
-        ++count;
-        cv.notify_one();
-    }
-};
-```
-
-### Error: nlohmann/json no encontrado
-
-CMake descargará automáticamente la librería. Si falla:
-
-```bash
-# Instalar manualmente
-sudo apt install nlohmann-json3-dev
-```
-
-O descargar el header único desde: https://github.com/nlohmann/json/releases
+---
 
 ## Licencia
 
-Este proyecto es una implementación educativa para el curso de Sistemas Operativos.
+Uso académico y educativo
 
-## Autores
+---
 
-- Equipo ProyectoSO
-- Fecha: Noviembre 2025
+## Agradecimientos
+
+- Profesores de Sistemas Operativos
+- Comunidad de C++ y Qt
+- Autores de las referencias bibliográficas
+
+---
+
+*Última actualización: Noviembre 2025*
