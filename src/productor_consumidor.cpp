@@ -64,6 +64,10 @@ size_t ColaTransacciones::tamanio() const {
     return cola.size();
 }
 
+size_t ColaTransacciones::obtener_tamanio() const {
+    return tamanio();
+}
+
 bool ColaTransacciones::esta_vacia() const {
     std::lock_guard<std::mutex> lock(mtx);
     return cola.empty();
