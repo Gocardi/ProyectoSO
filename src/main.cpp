@@ -228,6 +228,9 @@ int main(int argc, char* argv[]) {
     std::cout << "\n[MAIN] Iniciando apagado ordenado..." << std::endl;
     activo = false;  // Señalar a todos los hilos que deben terminar
     
+    // Cerrar la cola para desbloquear a los consumidores que estén esperando
+    cola->cerrar();
+    
     std::cout << "[MAIN] Esperando a que todos los hilos finalicen..." << std::endl;
     
     // Esperar a que todos los hilos terminen

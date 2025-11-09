@@ -33,10 +33,15 @@ void ColaTransacciones::producir(const Transaccion& transaccion) {
 Transaccion ColaTransacciones::consumir() {
     std::unique_lock<std::mutex> lock(mtx);
     
-    // Esperar si la cola está vacía
+    // Esperar si la cola está vacía Y no está cerrada
     cv_consumidor.wait(lock, [this]() { 
-        return !cola.empty(); 
+        return !cola.empty() || cerrada; 
     });
+    
+    // Si está cerrada y vacía, lanzar excepción para terminar el hilo
+    if (cerrada && cola.empty()) {
+        throw std::runtime_error("Cola cerrada");
+    }
     
     Transaccion t = cola.front();
     cola.pop();
@@ -45,6 +50,13 @@ Transaccion ColaTransacciones::consumir() {
     cv_productor.notify_one();
     
     return t;
+}
+
+void ColaTransacciones::cerrar() {
+    std::lock_guard<std::mutex> lock(mtx);
+    cerrada = true;
+    // Despertar a todos los consumidores que estén esperando
+    cv_consumidor.notify_all();
 }
 
 size_t ColaTransacciones::tamanio() const {
@@ -140,11 +152,16 @@ void MotorAntifraude::ejecutar() {
             // Liberar permiso del semáforo
             semaforo.release();
             
+        } catch (const std::runtime_error& e) {
+            // Cola cerrada, terminar normalmente
+            semaforo.release();
+            break;
         } catch (const std::exception& e) {
             semaforo.release();
             if (activo) {
                 std::cerr << "[ERROR] Motor #" << id << ": " << e.what() << std::endl;
             }
+            break;
         }
     }
     

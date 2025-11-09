@@ -17,6 +17,7 @@ private:
     mutable std::mutex mtx;  // mutable permite bloquear en métodos const
     std::condition_variable cv_productor;  // Para cuando la cola está llena
     std::condition_variable cv_consumidor; // Para cuando la cola está vacía
+    std::atomic<bool> cerrada{false};  // Para indicar que no habrá más datos
     
 public:
     ColaTransacciones(size_t capacidad);
@@ -26,6 +27,9 @@ public:
     
     // Consumidor: Extrae una transacción de la cola (bloquea si está vacía)
     Transaccion consumir();
+    
+    // Cierra la cola (desbloquea a todos los consumidores)
+    void cerrar();
     
     // Métodos de consulta
     size_t tamanio() const;
