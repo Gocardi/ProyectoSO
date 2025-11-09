@@ -121,8 +121,11 @@ void Cliente::ejecutar() {
 MotorAntifraude::MotorAntifraude(int id, std::shared_ptr<ColaTransacciones> cola,
                                  std::atomic<bool>& activo,
                                  Semaforo& semaforo,
+                                 std::shared_ptr<ContextoFraude> contexto, // Nuevo
                                  int delay_ms)
-    : id(id), cola(cola), activo(activo), semaforo(semaforo), delay_ms(delay_ms) {}
+    : id(id), cola(cola), activo(activo), semaforo(semaforo), 
+      contexto_fraude(contexto), // Inicializar el nuevo miembro
+      delay_ms(delay_ms) {}
 
 void MotorAntifraude::ejecutar() {
     while (activo) {
@@ -137,8 +140,8 @@ void MotorAntifraude::ejecutar() {
                       << " procesando transacción #" << t.id 
                       << " de cliente " << t.cliente_id << std::endl;
             
-            // Analizar la transacción
-            bool es_sospechosa = analizar_transaccion(t);
+            // Usar el contexto compartido para analizar la transacción
+            bool es_sospechosa = contexto_fraude->analizarYActualizar(t);
             
             if (es_sospechosa) {
                 std::cout << "[ALERTA] Motor #" << id 
@@ -163,7 +166,7 @@ void MotorAntifraude::ejecutar() {
         } catch (const std::exception& e) {
             semaforo.release();
             if (activo) {
-                std::cerr << "[ERROR] Motor #" << id << ": " << e.what() << std::endl;
+               std::cerr << "[ERROR] Motor #" << id << ": " << e.what() << std::endl;
             }
             break;
         }
@@ -172,18 +175,21 @@ void MotorAntifraude::ejecutar() {
     std::cout << "[MOTOR] Motor Antifraude #" << id << " finalizó." << std::endl;
 }
 
-bool MotorAntifraude::analizar_transaccion(const Transaccion& t) {
+
+// La funcion analizar_transaccion ha sido movida a ContextoFraude , ya no es miembro de MotorAntifraude
+
+// bool MotorAntifraude::analizar_transaccion(const Transaccion& t) {
     // Lógica simple de detección de fraude:
     // - Transacciones mayores a $8000 son sospechosas
     // - Transacciones de tipo RETIRO mayores a $5000 son sospechosas
     
-    if (t.monto > 8000.0) {
-        return true;
-    }
+    // if (t.monto > 8000.0) {
+    //    return true;
+    // }
     
-    if (t.tipo == "RETIRO" && t.monto > 5000.0) {
-        return true;
-    }
+    // if (t.tipo == "RETIRO" && t.monto > 5000.0) {
+    //     return true;
+    // }
     
-    return false;
-}
+    // return false;
+// }

@@ -172,13 +172,15 @@ int main(int argc, char* argv[]) {
     // 3. Crear objetos compartidos
     
     // Semáforo para limitar motores concurrentes (máximo 3)
-    Semaforo semaforo(3);
+    Semaforo semaforo(config.num_motores);  // Usar valor de configuración
     
     // Cola de transacciones (buffer limitado)
     auto cola = std::make_shared<ColaTransacciones>(config.capacidad_cola);
     
     // Sistema de configuración (lectores-escritores)
     auto sistema_config = std::make_shared<ConfiguracionSistema>();
+    // Creamos una unica instancia de ContextoFraude compartida
+    auto contexto_fraude_compartido = std::make_shared<ContextoFraude>();
     
     std::cout << "[MAIN] Iniciando hilos...\n" << std::endl;
     
@@ -196,8 +198,9 @@ int main(int argc, char* argv[]) {
     
     // --- Consumidores: Motores Antifraude ---
     for (int i = 0; i < config.num_motores; ++i) {
-        hilos.emplace_back([i, cola, &activo, &semaforo]() {
-            MotorAntifraude motor(i + 1, cola, activo, semaforo, 1500);
+        // Pasamos el puntero al contexto comrtido a cada motor
+        hilos.emplace_back([i, cola, &activo, &semaforo, contexto_fraude_compartido]() {
+            MotorAntifraude motor(i + 1, cola, activo, semaforo, contexto_fraude_compartido, 1500);
             motor.ejecutar();
         });
     }
