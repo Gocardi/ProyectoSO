@@ -33,6 +33,7 @@ public:
     
     // Métodos de consulta
     size_t tamanio() const;
+    size_t obtener_tamanio() const; // Alias para Qt
     bool esta_vacia() const;
     bool esta_llena() const;
 };
