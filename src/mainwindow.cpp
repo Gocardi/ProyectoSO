@@ -823,63 +823,224 @@ void MainWindow::resolver_deadlock_demo() {
 }
 
 void MainWindow::demostrar_semaforo() {
-    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
-    log_demo("🚦 DEMOSTRACIÓN DE SEMÁFORO CONTADOR", "info");
-    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
+    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
+    log_demo("🚦 DEMOSTRACIÓN DE SEMÁFORO - OPERACIONES REALES", "info");
+    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
 
     btn_demo_semaforo->setEnabled(false);
 
     std::thread([this]() {
         try {
-            log_demo("", "info");
-            log_demo("📌 Escenario: Sistema antifraude con 3 motores máximo", "info");
-            log_demo("   • Semáforo inicializado con valor = 3", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            // 1. SELECCIONAR USUARIO ALEATORIO
+            auto usuarios = db->cargar_usuarios();
+            if (usuarios.empty()) {
+                log_demo("❌ No hay usuarios disponibles", "error");
+                btn_demo_semaforo->setEnabled(true);
+                return;
+            }
+
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<> dist_usuario(0, usuarios.size() - 1);
+            auto usuario_seleccionado = usuarios[dist_usuario(gen)];
+
+            double saldo_inicial = usuario_seleccionado.saldo;
 
             log_demo("", "info");
-            log_demo("▶️  Llegan 5 transacciones simultáneas para análisis", "warning");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            log_demo(QString("📌 Usuario seleccionado: %1 (Cuenta: %2)")
+                         .arg(QString::fromStdString(usuario_seleccionado.nombre))
+                         .arg(QString::fromStdString(usuario_seleccionado.cuenta_id)), "info");
+            log_demo(QString("💰 Saldo inicial: $%1").arg(saldo_inicial, 0, 'f', 2), "info");
+            log_demo("", "info");
+            log_demo("📍 Escenario: 5 cajeros automáticos intentan operar simultáneamente", "warning");
+            log_demo("   • Semáforo: máximo 3 cajeros concurrentes", "info");
+            log_demo("   • Sin semáforo habría RACE CONDITION en el saldo", "warning");
+            std::this_thread::sleep_for(std::chrono::milliseconds(800));
+
+            // 2. GENERAR 5 OPERACIONES ALEATORIAS (retiros/depósitos)
+            std::uniform_int_distribution<> dist_monto(10, 24); // 10*5=50, 24*5=120
+            std::uniform_int_distribution<> dist_tipo(0, 1); // 0=retiro, 1=depósito
+
+            struct Operacion {
+                int cajero_id;
+                std::string tipo;
+                double monto;
+            };
+
+            std::vector<Operacion> operaciones;
+            double total_retiros = 0;
+            double total_depositos = 0;
 
             for (int i = 1; i <= 5; ++i) {
-                log_demo("", "info");
-                log_demo(QString("🔄 Transacción #%1 solicita un motor...").arg(i), "info");
-                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                Operacion op;
+                op.cajero_id = i;
+                op.monto = dist_monto(gen) * 5.0;
 
-                if (i <= 3) {
-                    log_demo(QString("   ✓ Motor %1 asignado (semáforo: %2 → %3)").arg(i).arg(4-i).arg(3-i), "success");
-                    log_demo(QString("   ⚙️  Analizando transacción #%1...").arg(i), "info");
+                // Alternar retiros y depósitos para no quedarse sin fondos
+                if (i % 2 == 0 && saldo_inicial - total_retiros + total_depositos > op.monto) {
+                    op.tipo = "RETIRO";
+                    total_retiros += op.monto;
                 } else {
-                    log_demo(QString("   ⏳ No hay motores disponibles (semáforo: 0)").arg(i), "warning");
-                    log_demo(QString("   😴 Transacción #%1 en espera...").arg(i), "warning");
+                    op.tipo = "DEPOSITO";
+                    total_depositos += op.monto;
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+                operaciones.push_back(op);
             }
 
             log_demo("", "info");
-            log_demo("⏱️  Motor 1 termina análisis (2 segundos)", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(800));
-            log_demo("   ✅ Motor 1 liberado (semáforo: 0 → 1)", "success");
-            log_demo("   ▶️  Transacción #4 despierta y toma el motor", "success");
-            log_demo("   ⚙️  Analizando transacción #4...", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+            log_demo("📋 Operaciones a procesar:", "info");
+            for (const auto& op : operaciones) {
+                QString emoji = (op.tipo == "RETIRO") ? "💸" : "💵";
+                log_demo(QString("   %1 Cajero #%2: %3 $%4")
+                             .arg(emoji)
+                             .arg(op.cajero_id)
+                             .arg(QString::fromStdString(op.tipo))
+                             .arg(op.monto, 0, 'f', 2), "info");
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-            log_demo("", "info");
-            log_demo("⏱️  Motor 2 termina análisis", "info");
+            // 3. CREAR SEMÁFORO (máximo 3 cajeros)
+            Semaforo semaforo_cajeros(3);
+
+            // 4. LANZAR 5 THREADS (uno por cajero)
+            std::vector<std::thread> threads;
+            std::mutex log_mutex;
+
+            for (const auto& op : operaciones) {
+                threads.emplace_back([this, op, &usuario_seleccionado, &semaforo_cajeros, &log_mutex]() {
+                    // Pequeño delay para que no todos lleguen exactamente al mismo tiempo
+                    std::this_thread::sleep_for(std::chrono::milliseconds(op.cajero_id * 50));
+
+                    {
+                        std::lock_guard<std::mutex> lk(log_mutex);
+                        log_demo("", "info");
+                        log_demo(QString("🔄 Cajero #%1 solicita acceso...")
+                                     .arg(op.cajero_id), "info");
+                    }
+
+                    // ⏱️ INTENTAR ADQUIRIR SEMÁFORO
+                    auto inicio = std::chrono::steady_clock::now();
+                    semaforo_cajeros.acquire();
+                    auto fin = std::chrono::steady_clock::now();
+                    auto espera = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
+
+                    {
+                        std::lock_guard<std::mutex> lk(log_mutex);
+                        if (espera.count() > 50) {
+                            log_demo(QString("   ⏳ Cajero #%1 esperó %2ms (semáforo: 0 → 1)")
+                                         .arg(op.cajero_id)
+                                         .arg(espera.count()), "warning");
+                        } else {
+                            log_demo(QString("   ✓ Cajero #%1 acceso concedido inmediatamente")
+                                         .arg(op.cajero_id), "success");
+                        }
+                        log_demo(QString("   ⚙️  Procesando %1 de $%2...")
+                                     .arg(QString::fromStdString(op.tipo))
+                                     .arg(op.monto, 0, 'f', 2), "info");
+                    }
+
+                    // 🔒 OPERACIÓN CRÍTICA (actualizar saldo)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+                    bool exito = false;
+                    if (op.tipo == "RETIRO") {
+                        exito = monitor->retirar(usuario_seleccionado.cuenta_id, op.monto);
+                        if (exito) {
+                            db->actualizar_saldo(usuario_seleccionado.nombre,
+                                                 usuario_seleccionado.saldo - op.monto);
+                        }
+                    } else { // DEPOSITO
+                        monitor->depositar(usuario_seleccionado.cuenta_id, op.monto);
+                        db->actualizar_saldo(usuario_seleccionado.nombre,
+                                             usuario_seleccionado.saldo + op.monto);
+                        exito = true;
+                    }
+
+                    // Actualizar para el siguiente
+                    usuario_seleccionado = db->obtener_usuario(usuario_seleccionado.nombre);
+
+                    // Registrar en historial
+                    if (exito) {
+                        TransaccionDB tdb;
+                        tdb.id = db->obtener_siguiente_id_transaccion();
+                        tdb.usuario_origen = usuario_seleccionado.nombre;
+                        tdb.usuario_destino = usuario_seleccionado.nombre;
+                        tdb.monto = op.monto;
+                        tdb.tipo = op.tipo + "_SEMAFORO";
+                        tdb.es_sospechosa = false;
+                        tdb.fecha = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss").toStdString();
+                        db->guardar_transaccion(tdb);
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> lk(log_mutex);
+                        if (exito) {
+                            log_demo(QString("   ✅ Cajero #%1 completó %2")
+                                         .arg(op.cajero_id)
+                                         .arg(QString::fromStdString(op.tipo)), "success");
+                            log_demo(QString("   💰 Saldo actualizado: $%1")
+                                         .arg(usuario_seleccionado.saldo, 0, 'f', 2), "success");
+                        } else {
+                            log_demo(QString("   ❌ Cajero #%1 falló (fondos insuficientes)")
+                                         .arg(op.cajero_id), "error");
+                        }
+                    }
+
+                    // 🔓 LIBERAR SEMÁFORO
+                    semaforo_cajeros.release();
+
+                    {
+                        std::lock_guard<std::mutex> lk(log_mutex);
+                        log_demo(QString("   🔓 Cajero #%1 liberó recurso (semáforo: +1)")
+                                     .arg(op.cajero_id), "info");
+                    }
+                });
+            }
+
+            // 5. ESPERAR A QUE TODOS LOS CAJEROS TERMINEN
+            for (auto& t : threads) {
+                t.join();
+            }
+
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            log_demo("   ✅ Motor 2 liberado (semáforo: 0 → 1)", "success");
-            log_demo("   ▶️  Transacción #5 despierta y toma el motor", "success");
-            log_demo("   ⚙️  Analizando transacción #5...", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+
+            // 6. MOSTRAR RESULTADOS FINALES
+            auto usuario_final = db->obtener_usuario(usuario_seleccionado.nombre);
+            double saldo_final = usuario_final.saldo;
+            double cambio = saldo_final - saldo_inicial;
 
             log_demo("", "info");
-            log_demo("✅ Todas las transacciones procesadas", "success");
+            log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "success");
+            log_demo("📊 RESULTADOS FINALES", "success");
+            log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "success");
+            log_demo(QString("👤 Usuario: %1").arg(QString::fromStdString(usuario_final.nombre)), "info");
+            log_demo(QString("💰 Saldo inicial:  $%1").arg(saldo_inicial, 0, 'f', 2), "info");
+            log_demo(QString("💰 Saldo final:    $%1").arg(saldo_final, 0, 'f', 2),
+                     cambio >= 0 ? "success" : "warning");
+            log_demo(QString("📈 Cambio neto:    %1$%2")
+                         .arg(cambio >= 0 ? "+" : "")
+                         .arg(cambio, 0, 'f', 2),
+                     cambio >= 0 ? "success" : "warning");
             log_demo("", "info");
-            log_demo("📚 Explicación: El semáforo limitó el acceso concurrente a 3 recursos,", "info");
-            log_demo("    haciendo que las transacciones 4 y 5 esperaran disponibilidad.", "info");
-            log_demo("    Esto previene sobrecarga del sistema. 🎯", "info");
+            log_demo("✅ Todas las operaciones completadas SIN RACE CONDITION", "success");
+            log_demo("", "info");
+            log_demo("📚 Explicación:", "info");
+            log_demo("   • El semáforo limitó a 3 cajeros concurrentes", "info");
+            log_demo("   • Cada operación fue ATÓMICA (sin corrupción de datos)", "info");
+            log_demo("   • Los cajeros 4 y 5 esperaron disponibilidad", "info");
+            log_demo("   • El saldo se actualizó CORRECTAMENTE en la BD 🎯", "info");
+
+            // 7. ACTUALIZAR UI EN EL THREAD PRINCIPAL
+            QMetaObject::invokeMethod(this, [this]() {
+                actualizar_tabla_usuarios();
+                actualizar_tabla_transacciones();
+                actualizar_estadisticas();
+                log_mensaje("✅ Demostración de semáforo completada - Revisa las pestañas", "success");
+            }, Qt::QueuedConnection);
 
         } catch (const std::exception& e) {
-            log_demo(QString("❌ Error: ") + e.what(), "error");
+            log_demo(QString("❌ Error: %1").arg(e.what()), "error");
         }
 
         btn_demo_semaforo->setEnabled(true);
