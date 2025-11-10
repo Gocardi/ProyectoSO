@@ -60,7 +60,7 @@ void MainWindow::setup_tab_usuarios() {
     QVBoxLayout *layout = new QVBoxLayout(tab_usuarios_widget);
 
     // Título
-    QLabel *titulo = new QLabel("<h2>👥 Gestión de Usuarios</h2>");
+    QLabel *titulo = new QLabel("<h2>Gestión de Usuarios</h2>");
     layout->addWidget(titulo);
 
     // Formulario de creación
@@ -352,7 +352,7 @@ void MainWindow::actualizar_tabla_usuarios() {
 
         tabla_usuarios->setItem(row, 3, new QTableWidgetItem(QString::fromStdString(usuario.fecha_creacion)));
 
-        // ✅ AGREGAR a los ComboBox
+        //  ComboBox
         combo_usuario_origen->addItem(QString::fromStdString(usuario.nombre));
         combo_usuario_destino->addItem(QString::fromStdString(usuario.nombre));
     }
@@ -692,12 +692,12 @@ void MainWindow::demostrar_deadlock() {
             this->monto_deadlock_B_a_A = dist(gen) * 5.0;
 
             log_demo("", "info");
-            log_demo(QString("👥 %1 (saldo: $%2) → %3 (saldo: $%4)")
+            log_demo(QString(" %1 (saldo: $%2) → %3 (saldo: $%4)")
                          .arg(QString::fromStdString(usuario_A.nombre))
                          .arg(saldo_inicial_A, 0, 'f', 2)
                          .arg(QString::fromStdString(usuario_B.nombre))
                          .arg(saldo_inicial_B, 0, 'f', 2), "info");
-            log_demo(QString("💸 Transferencias cruzadas: $%1 (A→B) y $%2 (B→A)")
+            log_demo(QString(" Transferencias cruzadas: $%1 (A→B) y $%2 (B→A)")
                          .arg(this->monto_deadlock_A_a_B, 0, 'f', 2)
                          .arg(this->monto_deadlock_B_a_A, 0, 'f', 2), "info");
 
@@ -711,7 +711,7 @@ void MainWindow::demostrar_deadlock() {
             std::this_thread::sleep_for(std::chrono::seconds(2));
 
             log_demo("", "info");
-            log_demo("💀 DEADLOCK: Ciclo de espera circular detectado", "error");
+            log_demo(" DEADLOCK: Ciclo de espera circular detectado", "error");
             log_demo("   Thread 1 espera a Thread 2, Thread 2 espera a Thread 1", "error");
 
             double diferencia = this->monto_deadlock_A_a_B - this->monto_deadlock_B_a_A;
@@ -837,7 +837,7 @@ void MainWindow::resolver_deadlock_demo() {
             double cambio_B = usuario_B_final.saldo - saldo_antes_B;
 
             log_demo("", "info");
-            log_demo("📊 RESULTADOS:", "success");
+            log_demo(" RESULTADOS:", "success");
             log_demo(QString("   %1: $%2 → $%3 (%4$%5)")
                          .arg(QString::fromStdString(usuario_A_final.nombre))
                          .arg(saldo_antes_A, 0, 'f', 2)
@@ -853,7 +853,7 @@ void MainWindow::resolver_deadlock_demo() {
                          .arg(cambio_B, 0, 'f', 2),
                      cambio_B >= 0 ? "success" : "warning");
             log_demo("", "info");
-            log_demo("💡 Solución: Timeout detectó el deadlock y se usó transferir() seguro", "info");
+            log_demo(" Solución: Timeout detectó el deadlock y se usó transferir() seguro", "info");
 
             cuentas_en_deadlock.reset();
             deadlock_activo = false;
@@ -877,7 +877,7 @@ void MainWindow::resolver_deadlock_demo() {
 
 void MainWindow::demostrar_semaforo() {
     log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
-    log_demo("🚦 DEMOSTRACIÓN DE SEMÁFORO - OPERACIONES REALES", "info");
+    log_demo(" DEMOSTRACIÓN DE SEMÁFORO ", "info");
     log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
 
     btn_demo_semaforo->setEnabled(false);
@@ -900,12 +900,12 @@ void MainWindow::demostrar_semaforo() {
             double saldo_inicial = usuario_seleccionado.saldo;
 
             log_demo("", "info");
-            log_demo(QString("📌 Usuario seleccionado: %1 (Cuenta: %2)")
+            log_demo(QString(" Usuario seleccionado: %1 (Cuenta: %2)")
                          .arg(QString::fromStdString(usuario_seleccionado.nombre))
                          .arg(QString::fromStdString(usuario_seleccionado.cuenta_id)), "info");
-            log_demo(QString("💰 Saldo inicial: $%1").arg(saldo_inicial, 0, 'f', 2), "info");
+            log_demo(QString(" Saldo inicial: $%1").arg(saldo_inicial, 0, 'f', 2), "info");
             log_demo("", "info");
-            log_demo("📍 Escenario: 5 cajeros automáticos intentan operar simultáneamente", "warning");
+            log_demo(" Escenario: 5 cajeros automáticos intentan operar simultáneamente", "warning");
             log_demo("   • Semáforo: máximo 3 cajeros concurrentes", "info");
             log_demo("   • Sin semáforo habría RACE CONDITION en el saldo", "warning");
             std::this_thread::sleep_for(std::chrono::milliseconds(800));
@@ -988,7 +988,7 @@ void MainWindow::demostrar_semaforo() {
                             log_demo(QString("   ✓ Cajero #%1 acceso concedido inmediatamente")
                                          .arg(op.cajero_id), "success");
                         }
-                        log_demo(QString("   ⚙️  Procesando %1 de $%2...")
+                        log_demo(QString("     Procesando %1 de $%2...")
                                      .arg(QString::fromStdString(op.tipo))
                                      .arg(op.monto, 0, 'f', 2), "info");
                     }
@@ -1068,21 +1068,21 @@ void MainWindow::demostrar_semaforo() {
             log_demo("📊 RESULTADOS FINALES", "success");
             log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "success");
             log_demo(QString("👤 Usuario: %1").arg(QString::fromStdString(usuario_final.nombre)), "info");
-            log_demo(QString("💰 Saldo inicial:  $%1").arg(saldo_inicial, 0, 'f', 2), "info");
-            log_demo(QString("💰 Saldo final:    $%1").arg(saldo_final, 0, 'f', 2),
+            log_demo(QString(" Saldo inicial:  $%1").arg(saldo_inicial, 0, 'f', 2), "info");
+            log_demo(QString(" Saldo final:    $%1").arg(saldo_final, 0, 'f', 2),
                      cambio >= 0 ? "success" : "warning");
-            log_demo(QString("📈 Cambio neto:    %1$%2")
+            log_demo(QString(" Cambio neto:    %1$%2")
                          .arg(cambio >= 0 ? "+" : "")
                          .arg(cambio, 0, 'f', 2),
                      cambio >= 0 ? "success" : "warning");
             log_demo("", "info");
             log_demo("✅ Todas las operaciones completadas SIN RACE CONDITION", "success");
             log_demo("", "info");
-            log_demo("📚 Explicación:", "info");
+            log_demo(" Explicación:", "info");
             log_demo("   • El semáforo limitó a 3 cajeros concurrentes", "info");
             log_demo("   • Cada operación fue ATÓMICA (sin corrupción de datos)", "info");
             log_demo("   • Los cajeros 4 y 5 esperaron disponibilidad", "info");
-            log_demo("   • El saldo se actualizó CORRECTAMENTE en la BD 🎯", "info");
+            log_demo("   • El saldo se actualizó CORRECTAMENTE en la BD ", "info");
 
             // 7. ACTUALIZAR UI EN EL THREAD PRINCIPAL
             QMetaObject::invokeMethod(this, [this]() {
