@@ -570,21 +570,24 @@ void MainWindow::log_mensaje(const QString& mensaje, const QString& tipo) {
 }
 
 void MainWindow::log_demo(const QString& mensaje, const QString& tipo) {
-    QString color = "black";
-    if (tipo == "success") color = "green";
-    else if (tipo == "error") color = "red";
-    else if (tipo == "warning") color = "orange";
-    else if (tipo == "info") color = "blue";
+    // THREAD-SAFE: Usar QMetaObject::invokeMethod para acceder a widgets desde otros hilos
+    QMetaObject::invokeMethod(this, [this, mensaje, tipo]() {
+        QString color = "black";
+        if (tipo == "success") color = "green";
+        else if (tipo == "error") color = "red";
+        else if (tipo == "warning") color = "orange";
+        else if (tipo == "info") color = "blue";
 
-    QString timestamp = QDateTime::currentDateTime().toString("HH:mm:ss");
-    QString html = QString("<span style='color: gray;'>[%1]</span> <span style='color: %2;'>%3</span>")
-        .arg(timestamp).arg(color).arg(mensaje);
+        QString timestamp = QDateTime::currentDateTime().toString("HH:mm:ss");
+        QString html = QString("<span style='color: gray;'>[%1]</span> <span style='color: %2;'>%3</span>")
+            .arg(timestamp).arg(color).arg(mensaje);
 
-    log_demostraciones->append(html);
+        log_demostraciones->append(html);
 
-    // Auto-scroll al final
-    QScrollBar *sb = log_demostraciones->verticalScrollBar();
-    sb->setValue(sb->maximum());
+        // Auto-scroll al final
+        QScrollBar *sb = log_demostraciones->verticalScrollBar();
+        sb->setValue(sb->maximum());
+    }, Qt::QueuedConnection);
 }
 
 void MainWindow::setup_tab_demostraciones() {
@@ -727,8 +730,12 @@ void MainWindow::demostrar_deadlock() {
         } catch (const std::exception& e) {
             log_demo(QString("❌ Error: %1").arg(e.what()), "error");
             deadlock_activo = false;
-            btn_demo_deadlock->setEnabled(true);
-            btn_resolver_deadlock->setEnabled(false);
+            
+            // THREAD-SAFE: Modificar botones desde thread principal
+            QMetaObject::invokeMethod(this, [this]() {
+                btn_demo_deadlock->setEnabled(true);
+                btn_resolver_deadlock->setEnabled(false);
+            }, Qt::QueuedConnection);
         }
 
     }).detach();
@@ -870,8 +877,11 @@ void MainWindow::resolver_deadlock_demo() {
             log_demo(QString("❌ Error: %1").arg(e.what()), "error");
         }
 
-        btn_demo_deadlock->setEnabled(true);
-        btn_resolver_deadlock->setEnabled(false);
+        // THREAD-SAFE: Modificar botones desde thread principal
+        QMetaObject::invokeMethod(this, [this]() {
+            btn_demo_deadlock->setEnabled(true);
+            btn_resolver_deadlock->setEnabled(false);
+        }, Qt::QueuedConnection);
 
     }).detach();
 }
@@ -889,7 +899,11 @@ void MainWindow::demostrar_semaforo() {
             auto usuarios = db->cargar_usuarios();
             if (usuarios.empty()) {
                 log_demo("❌ No hay usuarios disponibles", "error");
-                btn_demo_semaforo->setEnabled(true);
+                
+                // THREAD-SAFE: Modificar botón desde thread principal
+                QMetaObject::invokeMethod(this, [this]() {
+                    btn_demo_semaforo->setEnabled(true);
+                }, Qt::QueuedConnection);
                 return;
             }
 
@@ -1097,7 +1111,10 @@ void MainWindow::demostrar_semaforo() {
             log_demo(QString("❌ Error: %1").arg(e.what()), "error");
         }
 
-        btn_demo_semaforo->setEnabled(true);
+        // THREAD-SAFE: Modificar botón desde thread principal
+        QMetaObject::invokeMethod(this, [this]() {
+            btn_demo_semaforo->setEnabled(true);
+        }, Qt::QueuedConnection);
     }).detach();
 }
 
@@ -1424,7 +1441,10 @@ void MainWindow::demostrar_lectores_escritores() {
             log_demo(QString("❌ Error: %1").arg(e.what()), "error");
         }
 
-        btn_demo_lectores_escritores->setEnabled(true);
+        // THREAD-SAFE: Modificar botón desde thread principal
+        QMetaObject::invokeMethod(this, [this]() {
+            btn_demo_lectores_escritores->setEnabled(true);
+        }, Qt::QueuedConnection);
     }).detach();
 }
 
