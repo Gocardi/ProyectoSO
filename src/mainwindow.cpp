@@ -1119,260 +1119,247 @@ void MainWindow::demostrar_semaforo() {
 }
 
 void MainWindow::demostrar_lectores_escritores() {
-    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
-    log_demo("📖 DEMOSTRACIÓN LECTORES-ESCRITORES (REAL)", "info");
-    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
+    std::cout << "\n============================================" << std::endl;
+    std::cout << "DEMOSTRACION LECTORES-ESCRITORES (CONSOLA)" << std::endl;
+    std::cout << "============================================" << std::endl;
 
     btn_demo_lectores_escritores->setEnabled(false);
 
     std::thread([this]() {
         try {
-            log_demo("", "info");
-            log_demo("📌 Recurso compartido: archivos JSON (usuarios + transacciones)", "info");
-            log_demo("   • Múltiples lectores simultáneos: ✅ shared_lock", "success");
-            log_demo("   • Escritor requiere exclusividad: 🔒 unique_lock", "warning");
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            std::cout << "\nRecurso compartido: archivos JSON" << std::endl;
+            std::cout << "   - Multiples lectores simultaneos: [OK] shared_lock" << std::endl;
+            std::cout << "   - Escritor requiere exclusividad: [LOCK] unique_lock" << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(800));
+
+            std::vector<std::thread> threads;
+            std::mutex cout_mutex;
+            std::atomic<int> lectores_activos{0};
 
             // ============================================
             // LECTOR 1: Genera reporte de transacciones
             // ============================================
-            std::mutex log_mutex;
-            std::atomic<int> lectores_activos{0};
-
-            std::thread lector1([this, &log_mutex, &lectores_activos]() {
+            threads.emplace_back([this, &cout_mutex, &lectores_activos]() {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("", "info");
-                    log_demo("📖 LECTOR 1 → Generando reporte de transacciones...", "info");
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "\nLECTOR 1 -> Generando reporte de transacciones..." << std::endl;
                 }
 
-                auto inicio = std::chrono::steady_clock::now();
-                std::shared_lock lock(*mutex_db); // 🔓 SHARED LOCK
-                auto fin = std::chrono::steady_clock::now();
-                auto espera = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
-
-                lectores_activos++;
-
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    if (espera.count() > 10) {
-                        log_demo(QString("   ⏳ Esperó %1ms para obtener shared_lock").arg(espera.count()), "warning");
-                    } else {
-                        log_demo("   ✅ Acceso concedido inmediatamente (shared_lock)", "success");
+                    std::shared_lock lock(*mutex_db);
+                    lectores_activos++;
+
+                    {
+                        std::lock_guard<std::mutex> lk(cout_mutex);
+                        std::cout << "   [OK] Acceso concedido (shared_lock)" << std::endl;
+                        std::cout << "   [READ] Leyendo transacciones.json..." << std::endl;
                     }
-                    log_demo("   📄 Leyendo transacciones.json...", "info");
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+
+                    auto transacciones = db->cargar_transacciones(100);
+
+                    int total = transacciones.size();
+                    int aprobadas = 0;
+                    int sospechosas = 0;
+                    double monto_total = 0.0;
+
+                    for (const auto& t : transacciones) {
+                        if (t.es_sospechosa) sospechosas++;
+                        else aprobadas++;
+                        monto_total += t.monto;
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> lk(cout_mutex);
+                        std::cout << "   [STATS] Total: " << total
+                                  << " | Aprobadas: " << aprobadas
+                                  << " | Sospechosas: " << sospechosas << std::endl;
+                        std::cout << "   [MONEY] Monto procesado: $" << std::fixed << std::setprecision(2)
+                                  << monto_total << std::endl;
+                        std::cout << "   [INFO] Lectores activos: " << lectores_activos.load() << std::endl;
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(400));
                 }
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(800));
-
-                // LEE DATOS REALES
-                auto transacciones = db->cargar_transacciones(100);
-
-                int total = transacciones.size();
-                int aprobadas = 0;
-                int sospechosas = 0;
-                double monto_total = 0.0;
-
-                for (const auto& t : transacciones) {
-                    if (t.es_sospechosa) sospechosas++;
-                    else aprobadas++;
-                    monto_total += t.monto;
-                }
-
-                {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo(QString("   📊 Total: %1 | ✅ Aprobadas: %2 | ⚠️ Sospechosas: %3")
-                                 .arg(total).arg(aprobadas).arg(sospechosas), "success");
-                    log_demo(QString("   💰 Monto procesado: $%1").arg(monto_total, 0, 'f', 2), "success");
-                    log_demo(QString("   📖 Lectores activos: %1").arg(lectores_activos.load()), "info");
-                }
-
-                std::this_thread::sleep_for(std::chrono::milliseconds(600));
                 lectores_activos--;
-
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("   ✅ LECTOR 1 terminó lectura", "success");
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "   [DONE] LECTOR 1 termino lectura" << std::endl;
                 }
             });
 
             // ============================================
-            // LECTOR 2: Consulta saldo total del sistema
+            // LECTOR 2: Consulta saldo total
             // ============================================
-            std::thread lector2([this, &log_mutex, &lectores_activos]() {
-                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+            threads.emplace_back([this, &cout_mutex, &lectores_activos]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("", "info");
-                    log_demo("📖 LECTOR 2 → Consultando saldo total del sistema...", "info");
-                }
-
-                std::shared_lock lock(*mutex_db); // 🔓 SHARED LOCK
-                lectores_activos++;
-
-                {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("   ✅ Acceso concedido (shared_lock) - EN PARALELO con Lector 1", "success");
-                    log_demo("   📄 Leyendo usuarios.json...", "info");
-                }
-
-                std::this_thread::sleep_for(std::chrono::milliseconds(800));
-
-                // LEE DATOS REALES
-                auto usuarios = db->cargar_usuarios();
-
-                double saldo_total = 0.0;
-                int usuarios_activos = usuarios.size();
-
-                for (const auto& u : usuarios) {
-                    saldo_total += u.saldo;
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "\nLECTOR 2 -> Consultando saldo total del sistema..." << std::endl;
                 }
 
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo(QString("   👥 Usuarios activos: %1").arg(usuarios_activos), "success");
-                    log_demo(QString("   💰 Saldo total: $%1").arg(saldo_total, 0, 'f', 2), "success");
-                    log_demo(QString("   📖 Lectores activos: %1").arg(lectores_activos.load()), "info");
+                    std::shared_lock lock(*mutex_db);
+                    lectores_activos++;
+
+                    {
+                        std::lock_guard<std::mutex> lk(cout_mutex);
+                        std::cout << "   [OK] Acceso concedido (shared_lock) - EN PARALELO con Lector 1" << std::endl;
+                        std::cout << "   [READ] Leyendo usuarios.json..." << std::endl;
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+
+                    auto usuarios = db->cargar_usuarios();
+
+                    double saldo_total = 0.0;
+                    int usuarios_activos = usuarios.size();
+
+                    for (const auto& u : usuarios) {
+                        saldo_total += u.saldo;
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> lk(cout_mutex);
+                        std::cout << "   [STATS] Usuarios activos: " << usuarios_activos << std::endl;
+                        std::cout << "   [MONEY] Saldo total: $" << std::fixed << std::setprecision(2)
+                                  << saldo_total << std::endl;
+                        std::cout << "   [INFO] Lectores activos: " << lectores_activos.load() << std::endl;
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(400));
                 }
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(600));
                 lectores_activos--;
-
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("   ✅ LECTOR 2 terminó lectura", "success");
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "   [DONE] LECTOR 2 termino lectura" << std::endl;
                 }
             });
 
             // ============================================
             // LECTOR 3: Analiza patrones de fraude
             // ============================================
-            std::thread lector3([this, &log_mutex, &lectores_activos]() {
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            threads.emplace_back([this, &cout_mutex, &lectores_activos]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(400));
 
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("", "info");
-                    log_demo("📖 LECTOR 3 → Analizando patrones de fraude...", "info");
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "\nLECTOR 3 -> Analizando patrones de fraude..." << std::endl;
                 }
-
-                std::shared_lock lock(*mutex_db); // 🔓 SHARED LOCK
-                lectores_activos++;
 
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("   ✅ Acceso concedido (shared_lock) - 3 LECTORES SIMULTÁNEOS ✨", "success");
-                    log_demo("   📄 Leyendo transacciones.json...", "info");
+                    std::shared_lock lock(*mutex_db);
+                    lectores_activos++;
+
+                    {
+                        std::lock_guard<std::mutex> lk(cout_mutex);
+                        std::cout << "   [OK] Acceso concedido (shared_lock) - 3 LECTORES SIMULTANEOS" << std::endl;
+                        std::cout << "   [READ] Leyendo transacciones.json..." << std::endl;
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+
+                    auto transacciones = db->cargar_transacciones(100);
+
+                    int total = transacciones.size();
+                    int sospechosas = 0;
+
+                    for (const auto& t : transacciones) {
+                        if (t.es_sospechosa) sospechosas++;
+                    }
+
+                    double tasa_fraude = (total > 0) ? (sospechosas * 100.0 / total) : 0.0;
+                    std::string nivel = (tasa_fraude < 5) ? "BAJA" : (tasa_fraude < 10) ? "MEDIA" : "ALTA";
+
+                    {
+                        std::lock_guard<std::mutex> lk(cout_mutex);
+                        std::cout << "   [STATS] Transacciones analizadas: " << total << std::endl;
+                        std::cout << "   [WARN] Sospechosas: " << sospechosas
+                                  << " (" << std::fixed << std::setprecision(1) << tasa_fraude << "%)" << std::endl;
+                        std::cout << "   [RISK] Nivel de riesgo: " << nivel << std::endl;
+                        std::cout << "   [INFO] Lectores activos: " << lectores_activos.load() << std::endl;
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(400));
                 }
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(800));
-
-                // LEE DATOS REALES
-                auto transacciones = db->cargar_transacciones(100);
-
-                int total = transacciones.size();
-                int sospechosas = 0;
-
-                for (const auto& t : transacciones) {
-                    if (t.es_sospechosa) sospechosas++;
-                }
-
-                double tasa_fraude = (total > 0) ? (sospechosas * 100.0 / total) : 0.0;
-                QString nivel = (tasa_fraude < 5) ? "BAJA 🟢" : (tasa_fraude < 10) ? "MEDIA 🟡" : "ALTA 🔴";
-
-                {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo(QString("   📊 Transacciones analizadas: %1").arg(total), "success");
-                    log_demo(QString("   ⚠️ Sospechosas: %1 (%2%)").arg(sospechosas).arg(tasa_fraude, 0, 'f', 1), "warning");
-                    log_demo(QString("   🎯 Nivel de riesgo: %1").arg(nivel), "info");
-                    log_demo(QString("   📖 Lectores activos: %1").arg(lectores_activos.load()), "info");
-                }
-
-                std::this_thread::sleep_for(std::chrono::milliseconds(600));
                 lectores_activos--;
-
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("   ✅ LECTOR 3 terminó lectura", "success");
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "   [DONE] LECTOR 3 termino lectura" << std::endl;
                 }
             });
 
-            // Esperar que todos los lectores empiecen
-            std::this_thread::sleep_for(std::chrono::milliseconds(700));
+            // Esperar que los lectores empiecen
+            std::this_thread::sleep_for(std::chrono::milliseconds(600));
 
             // ============================================
-            // ESCRITOR: Actualiza límites de transacción
+            // ESCRITOR: Actualiza limites
             // ============================================
-            std::thread escritor([this, &log_mutex, &lectores_activos]() {
+            threads.emplace_back([this, &cout_mutex, &lectores_activos]() {
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("", "info");
-                    log_demo("✏️ ESCRITOR → Actualizando límites de transacción...", "warning");
-                    log_demo(QString("   ⏳ Esperando acceso exclusivo... (hay %1 lectores activos)")
-                                 .arg(lectores_activos.load()), "warning");
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "\nESCRITOR -> Actualizando limites de transaccion..." << std::endl;
+                    std::cout << "   [WAIT] Esperando acceso exclusivo... (hay " << lectores_activos.load()
+                              << " lectores activos)" << std::endl;
                 }
 
                 auto inicio = std::chrono::steady_clock::now();
-                std::unique_lock lock(*mutex_db); // 🔒 UNIQUE LOCK
+                std::unique_lock lock(*mutex_db);
                 auto fin = std::chrono::steady_clock::now();
                 auto espera = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
 
                 {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("", "info");
-                    log_demo(QString("   ⏱️ Esperó %1ms hasta obtener acceso exclusivo").arg(espera.count()), "warning");
-                    log_demo("   🔒 ACCESO EXCLUSIVO obtenido (unique_lock)", "success");
-                    log_demo("   📝 Modificando usuarios.json...", "info");
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "\n   [TIME] Espero " << espera.count() << "ms hasta obtener acceso exclusivo" << std::endl;
+                    std::cout << "   [LOCK] ACCESO EXCLUSIVO obtenido (unique_lock)" << std::endl;
+                    std::cout << "   [WRITE] Modificando usuarios.json..." << std::endl;
                 }
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                std::this_thread::sleep_for(std::chrono::milliseconds(800));
 
-                // MODIFICA DATOS REALES
                 auto usuarios = db->cargar_usuarios();
 
-                std::random_device rd;
-                std::mt19937 gen(rd());
-                std::uniform_int_distribution<> dist(0, usuarios.size() - 1);
-                int idx = dist(gen);
+                if (!usuarios.empty()) {
+                    std::random_device rd;
+                    std::mt19937 gen(rd());
+                    std::uniform_int_distribution<> dist(0, usuarios.size() - 1);
+                    int idx = dist(gen);
 
-                auto& usuario_modificado = usuarios[idx];
-                double limite_anterior = 5000.0; // Simulado
-                double limite_nuevo = 10000.0;
+                    auto& usuario_modificado = usuarios[idx];
+                    double saldo_anterior = usuario_modificado.saldo;
 
-                {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo(QString("   ✏️ Actualizando usuario: %1")
-                                 .arg(QString::fromStdString(usuario_modificado.nombre)), "info");
-                    log_demo(QString("   💳 Límite diario: $%1 → $%2")
-                                 .arg(limite_anterior, 0, 'f', 2)
-                                 .arg(limite_nuevo, 0, 'f', 2), "info");
+                    {
+                        std::lock_guard<std::mutex> lk(cout_mutex);
+                        std::cout << "   [MODIFY] Actualizando usuario: " << usuario_modificado.nombre << std::endl;
+                        std::cout << "   [CONFIG] Limite diario: $5,000 -> $10,000" << std::endl;
+                    }
+
+                    // Hacer cambio imperceptible (solo para demostrar acceso exclusivo)
+                    db->actualizar_saldo(usuario_modificado.nombre, saldo_anterior + 0.01);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                    db->actualizar_saldo(usuario_modificado.nombre, saldo_anterior);
+
+                    {
+                        std::lock_guard<std::mutex> lk(cout_mutex);
+                        std::cout << "   [OK] Escritura completada en usuarios.json" << std::endl;
+                        std::cout << "   [UNLOCK] Recurso liberado" << std::endl;
+                    }
                 }
-
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-                // Aquí normalmente guardarías con db->guardar_usuario()
-                // Como tu DatabaseJSON no tiene método para actualizar límites,
-                // lo simulamos actualizando el saldo como demostración
-                double saldo_anterior = usuario_modificado.saldo;
-                db->actualizar_saldo(usuario_modificado.nombre, saldo_anterior + 0.01); // Cambio mínimo
-                db->actualizar_saldo(usuario_modificado.nombre, saldo_anterior); // Restaurar
-
-                {
-                    std::lock_guard<std::mutex> lk(log_mutex);
-                    log_demo("   ✅ Escritura completada en usuarios.json", "success");
-                    log_demo("   🔓 Recurso liberado", "success");
-                }
-
             });
 
-            // Esperar a todos
-            lector1.join();
-            lector2.join();
-            lector3.join();
-            escritor.join();
+            // ESPERAR todos los threads
+            for (auto& t : threads) {
+                if (t.joinable()) {
+                    t.join();
+                }
+            }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -1380,71 +1367,68 @@ void MainWindow::demostrar_lectores_escritores() {
             // LECTOR 4: Verifica cambios
             // ============================================
             {
-                std::lock_guard<std::mutex> lk(log_mutex);
-                log_demo("", "info");
-                log_demo("📖 LECTOR 4 → Verificando cambios realizados...", "info");
+                std::lock_guard<std::mutex> lk(cout_mutex);
+                std::cout << "\nLECTOR 4 -> Verificando cambios realizados..." << std::endl;
             }
-
-            std::shared_lock lock(*mutex_db);
 
             {
-                std::lock_guard<std::mutex> lk(log_mutex);
-                log_demo("   ✅ Acceso concedido (shared_lock)", "success");
-                log_demo("   📄 Leyendo usuarios.json...", "info");
+                std::shared_lock lock(*mutex_db);
+
+                {
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "   [OK] Acceso concedido (shared_lock)" << std::endl;
+                    std::cout << "   [READ] Leyendo usuarios.json..." << std::endl;
+                }
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+                auto usuarios_final = db->cargar_usuarios();
+
+                {
+                    std::lock_guard<std::mutex> lk(cout_mutex);
+                    std::cout << "   [OK] Verificacion completada - " << usuarios_final.size()
+                              << " usuarios registrados" << std::endl;
+                    std::cout << "   [STATUS] Sistema operando normalmente" << std::endl;
+                }
             }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(600));
-
-            auto usuarios_final = db->cargar_usuarios();
-
-            {
-                std::lock_guard<std::mutex> lk(log_mutex);
-                log_demo(QString("   ✅ Verificación completada - %1 usuarios registrados")
-                             .arg(usuarios_final.size()), "success");
-                log_demo("   💳 Límites actualizados correctamente ✨", "success");
-            }
-
-            lock.unlock();
 
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
             // RESUMEN
             {
-                std::lock_guard<std::mutex> lk(log_mutex);
-                log_demo("", "info");
-                log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "success");
-                log_demo("✅ DEMOSTRACIÓN COMPLETADA", "success");
-                log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "success");
-                log_demo("", "info");
-                log_demo("📚 Resumen:", "info");
-                log_demo("   • 3 Lectores simultáneos leyeron sin bloqueo (shared_lock)", "info");
-                log_demo("   • Escritor esperó a que terminaran TODOS los lectores", "info");
-                log_demo("   • Escritor obtuvo acceso EXCLUSIVO (unique_lock)", "info");
-                log_demo("   • Lector 4 verificó cambios después de la escritura", "info");
-                log_demo("   • Archivos JSON modificados REALMENTE ✅", "info");
-                log_demo("", "info");
-                log_demo("🎯 Conceptos demostrados:", "info");
-                log_demo("   • Concurrencia segura en lecturas (shared_lock)", "info");
-                log_demo("   • Exclusión mutua en escritura (unique_lock)", "info");
-                log_demo("   • Sincronización automática con shared_mutex", "info");
-                log_demo("   • Prevención de race conditions en archivos", "info");
+                std::lock_guard<std::mutex> lk(cout_mutex);
+                std::cout << "\n============================================" << std::endl;
+                std::cout << "DEMOSTRACION COMPLETADA" << std::endl;
+                std::cout << "============================================" << std::endl;
+                std::cout << "\nResumen:" << std::endl;
+                std::cout << "   - 3 Lectores simultaneos leyeron sin bloqueo (shared_lock)" << std::endl;
+                std::cout << "   - Escritor espero a que terminaran TODOS los lectores" << std::endl;
+                std::cout << "   - Escritor obtuvo acceso EXCLUSIVO (unique_lock)" << std::endl;
+                std::cout << "   - Lector 4 verifico el sistema despues de la escritura" << std::endl;
+                std::cout << "   - Archivos JSON accedidos REALMENTE" << std::endl;
+                std::cout << "\nConceptos demostrados:" << std::endl;
+                std::cout << "   - Concurrencia segura en lecturas (shared_lock)" << std::endl;
+                std::cout << "   - Exclusion mutua en escritura (unique_lock)" << std::endl;
+                std::cout << "   - Sincronizacion con shared_mutex" << std::endl;
+                std::cout << "   - Prevencion de race conditions" << std::endl;
+                std::cout << "\n" << std::endl;
             }
 
             // Actualizar UI
             QMetaObject::invokeMethod(this, [this]() {
                 actualizar_tabla_usuarios();
                 actualizar_tabla_transacciones();
-                log_mensaje("✅ Demostración Lectores-Escritores completada - Datos actualizados", "success");
+                log_mensaje("Demostracion Lectores-Escritores completada (ver consola)", "success");
+                btn_demo_lectores_escritores->setEnabled(true);
             }, Qt::QueuedConnection);
 
         } catch (const std::exception& e) {
-            log_demo(QString("❌ Error: %1").arg(e.what()), "error");
+            std::cerr << "[ERROR] " << e.what() << std::endl;
+            QMetaObject::invokeMethod(this, [this]() {
+                btn_demo_lectores_escritores->setEnabled(true);
+            }, Qt::QueuedConnection);
         }
 
-        // THREAD-SAFE: Modificar botón desde thread principal
-        QMetaObject::invokeMethod(this, [this]() {
-            btn_demo_lectores_escritores->setEnabled(true);
-        }, Qt::QueuedConnection);
     }).detach();
 }
 
