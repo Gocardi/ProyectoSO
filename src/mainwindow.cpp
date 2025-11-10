@@ -4,6 +4,8 @@
 #include <QDateTime>
 #include <QScrollBar>
 #include <thread>
+#include <random>
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -11,14 +13,16 @@ MainWindow::MainWindow(QWidget *parent)
       contador_transacciones(0),
       transacciones_aprobadas(0),
       transacciones_sospechosas(0),
-      monto_total_procesado(0.0) {
+      monto_total_procesado(0.0),
+      monto_deadlock_A_a_B(0.0),  // <- AGREGAR ESTA LÍNEA
+      monto_deadlock_B_a_A(0.0) {
     
     // Inicializar componentes
     db = std::make_shared<DatabaseJSON>("usuarios.json", "transacciones.json");
     monitor = std::make_shared<MonitorCuentas>();
     cola = std::make_shared<ColaTransacciones>(10);
     config = std::make_shared<ConfiguracionSistema>();
-    contexto_fraude = std::make_shared<ContextoFraude>(); // Nuevo contexto compartido
+   // contexto_fraude = std::make_shared<ContextoFraude>(); // Nuevo contexto compartido
     
     // Configurar UI
     setup_ui();
@@ -369,8 +373,11 @@ void MainWindow::enviar_transaccion() {
     // 5. --- ¡LA LÓGICA CLAVE MEJORADA! ---
     // Se utiliza el contexto de fraude compartido para determinar si la transacción es sospechosa.
     // Esto centraliza la lógica de fraude para operaciones manuales y automáticas.
-    bool es_sospechosa = contexto_fraude->analizarYActualizar(t);
-    t.es_sospechosa = es_sospechosa; // Actualizamos el objeto de transacción
+    if (monto > 8000 || (t.tipo == "RETIRO" && monto > 5000)) {
+        t.es_sospechosa = true;
+    } else {
+        t.es_sospechosa = false;
+    }
 
     if (t.es_sospechosa) {
         transacciones_sospechosas++; // Actualizamos el contador de la UI
@@ -600,115 +607,216 @@ void MainWindow::setup_tab_demostraciones() {
     tabs->addTab(tab_demos_widget, "🔬 Demostraciones");
 }
 
+// REEMPLAZAR ESTAS DOS FUNCIONES COMPLETAS EN mainwindow.cpp
+
 void MainWindow::demostrar_deadlock() {
-    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
-    log_demo("🔒 INICIANDO DEMOSTRACIÓN DE DEADLOCK", "warning");
-    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
-    
+    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
+    log_demo("🔒 DEMOSTRACIÓN DE DEADLOCK", "warning");
+    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
+
     btn_demo_deadlock->setEnabled(false);
-    
-    // Ejecutar en thread separado para no bloquear UI
+    btn_resolver_deadlock->setEnabled(true);
+
     std::thread([this]() {
         try {
+            // Seleccionar dos usuarios aleatorios
+            auto [usuario_A, usuario_B] = obtener_usuarios_aleatorios();
+            cuentas_en_deadlock = {usuario_A.cuenta_id, usuario_B.cuenta_id};
+            deadlock_activo = true;
+
+            double saldo_inicial_A = usuario_A.saldo;
+            double saldo_inicial_B = usuario_B.saldo;
+
+            // Generar montos aleatorios múltiplos de 5 entre 50 y 120
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<> dist(10, 24); // 10*5=50, 24*5=120
+
+            // GUARDAR los montos para usarlos después en resolver_deadlock_demo
+            this->monto_deadlock_A_a_B = dist(gen) * 5.0;
+            this->monto_deadlock_B_a_A = dist(gen) * 5.0;
+
             log_demo("", "info");
-            log_demo("📌 Creando dos cuentas bancarias...", "info");
-            log_demo("   • Cuenta A: $5000", "info");
-            log_demo("   • Cuenta B: $8000", "info");
+            log_demo(QString("👥 %1 (saldo: $%2) → %3 (saldo: $%4)")
+                         .arg(QString::fromStdString(usuario_A.nombre))
+                         .arg(saldo_inicial_A, 0, 'f', 2)
+                         .arg(QString::fromStdString(usuario_B.nombre))
+                         .arg(saldo_inicial_B, 0, 'f', 2), "info");
+            log_demo(QString("💸 Transferencias cruzadas: $%1 (A→B) y $%2 (B→A)")
+                         .arg(this->monto_deadlock_A_a_B, 0, 'f', 2)
+                         .arg(this->monto_deadlock_B_a_A, 0, 'f', 2), "info");
+
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            
+
+            // Activar modo deadlock
+            monitor->activar_deadlock();
+            monitor->transferir_con_deadlock(usuario_A.cuenta_id, usuario_B.cuenta_id, this->monto_deadlock_A_a_B);
+            monitor->transferir_con_deadlock(usuario_B.cuenta_id, usuario_A.cuenta_id, this->monto_deadlock_B_a_A);
+
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+
             log_demo("", "info");
-            log_demo("👤 Creando dos hilos (Thread 1 y Thread 2)...", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            
-            log_demo("", "info");
-            log_demo("⚠️  Thread 1: Intentando transferir A → B", "warning");
-            log_demo("   1. Bloqueando mutex de Cuenta A... ✓", "info");
-            log_demo("   2. Esperando 100ms...", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(300));
-            
-            log_demo("", "info");
-            log_demo("⚠️  Thread 2: Intentando transferir B → A", "warning");
-            log_demo("   1. Bloqueando mutex de Cuenta B... ✓", "info");
-            log_demo("   2. Esperando 100ms...", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(300));
-            
-            log_demo("", "info");
-            log_demo("❌ Thread 1: Intentando bloquear Cuenta B...", "error");
-            log_demo("   ⏳ BLOQUEADO - Cuenta B ya está en uso por Thread 2", "error");
-            std::this_thread::sleep_for(std::chrono::milliseconds(300));
-            
-            log_demo("", "info");
-            log_demo("❌ Thread 2: Intentando bloquear Cuenta A...", "error");
-            log_demo("   ⏳ BLOQUEADO - Cuenta A ya está en uso por Thread 1", "error");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            
-            log_demo("", "info");
-            log_demo("💀 ¡DEADLOCK DETECTADO!", "error");
-            log_demo("   • Thread 1 espera a Thread 2", "error");
-            log_demo("   • Thread 2 espera a Thread 1", "error");
-            log_demo("   • Ninguno puede continuar ⚠️", "error");
-            log_demo("", "info");
-            log_demo("📚 Explicación: Cada hilo mantiene un recurso y espera por el otro,", "warning");
-            log_demo("    creando un ciclo de espera infinito (condición de Coffman #4)", "warning");
-            
+            log_demo("💀 DEADLOCK: Ciclo de espera circular detectado", "error");
+            log_demo("   Thread 1 espera a Thread 2, Thread 2 espera a Thread 1", "error");
+
+            double diferencia = this->monto_deadlock_A_a_B - this->monto_deadlock_B_a_A;
+            log_demo(QString("   Cambio esperado: %1 ($%2%3) | %4 ($%5%6)")
+                         .arg(QString::fromStdString(usuario_A.nombre))
+                         .arg(diferencia >= 0 ? "+" : "")
+                         .arg(-diferencia, 0, 'f', 2)
+                         .arg(QString::fromStdString(usuario_B.nombre))
+                         .arg(diferencia >= 0 ? "+" : "")
+                         .arg(diferencia, 0, 'f', 2), "warning");
+
         } catch (const std::exception& e) {
-            log_demo(QString("❌ Error: ") + e.what(), "error");
+            log_demo(QString("❌ Error: %1").arg(e.what()), "error");
+            deadlock_activo = false;
+            btn_demo_deadlock->setEnabled(true);
+            btn_resolver_deadlock->setEnabled(false);
         }
-        
-        btn_demo_deadlock->setEnabled(true);
+
     }).detach();
 }
 
+
 void MainWindow::resolver_deadlock_demo() {
-    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
-    log_demo("✅ RESOLVIENDO DEADLOCK CON std::scoped_lock", "success");
-    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
-    
+    if (!deadlock_activo || !cuentas_en_deadlock.has_value()) {
+        log_demo("⚠ No hay deadlock activo para resolver", "warning");
+        return;
+    }
+
+    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
+    log_demo("✅ RESOLVIENDO DEADLOCK", "success");
+    log_demo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "info");
+
     btn_resolver_deadlock->setEnabled(false);
-    
+
     std::thread([this]() {
         try {
+            auto [cuenta_A, cuenta_B] = cuentas_en_deadlock.value();
+            auto usuario_A = db->obtener_usuario_por_cuenta(cuenta_A);
+            auto usuario_B = db->obtener_usuario_por_cuenta(cuenta_B);
+
+            double saldo_antes_A = usuario_A.saldo;
+            double saldo_antes_B = usuario_B.saldo;
+
+            // USAR los montos guardados desde demostrar_deadlock()
+            double monto_A_a_B = this->monto_deadlock_A_a_B;
+            double monto_B_a_A = this->monto_deadlock_B_a_A;
+
+            log_demo(QString("🔧 Desactivando deadlock y usando transferir() seguro..."), "warning");
+            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+            monitor->resolver_deadlock();
+
+            // ========== TRANSFERENCIA 1: A → B ==========
+            log_demo(QString("▶️  Transferencia 1: %1 → %2 ($%3)")
+                         .arg(QString::fromStdString(usuario_A.nombre))
+                         .arg(QString::fromStdString(usuario_B.nombre))
+                         .arg(monto_A_a_B, 0, 'f', 2), "info");
+
+            bool exito1 = monitor->transferir(cuenta_A, cuenta_B, monto_A_a_B);
+
+            if (exito1) {
+                db->actualizar_saldo(usuario_A.nombre, saldo_antes_A - monto_A_a_B);
+                db->actualizar_saldo(usuario_B.nombre, saldo_antes_B + monto_A_a_B);
+
+                TransaccionDB tdb1;
+                tdb1.id = db->obtener_siguiente_id_transaccion();
+                tdb1.usuario_origen = usuario_A.nombre;
+                tdb1.usuario_destino = usuario_B.nombre;
+                tdb1.monto = monto_A_a_B;
+                tdb1.tipo = "TRANSFERENCIA_DEADLOCK";
+                tdb1.es_sospechosa = false;
+                tdb1.fecha = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss").toStdString();
+                db->guardar_transaccion(tdb1);
+
+                contador_transacciones++;
+                transacciones_aprobadas++;
+                monto_total_procesado += monto_A_a_B;
+
+                log_demo("   ✔ Completada", "success");
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+            // ========== TRANSFERENCIA 2: B → A ==========
+            log_demo(QString("▶️  Transferencia 2: %1 → %2 ($%3)")
+                         .arg(QString::fromStdString(usuario_B.nombre))
+                         .arg(QString::fromStdString(usuario_A.nombre))
+                         .arg(monto_B_a_A, 0, 'f', 2), "info");
+
+            auto usuario_A_intermedio = db->obtener_usuario_por_cuenta(cuenta_A);
+            auto usuario_B_intermedio = db->obtener_usuario_por_cuenta(cuenta_B);
+
+            bool exito2 = monitor->transferir(cuenta_B, cuenta_A, monto_B_a_A);
+
+            if (exito2) {
+                db->actualizar_saldo(usuario_B_intermedio.nombre, usuario_B_intermedio.saldo - monto_B_a_A);
+                db->actualizar_saldo(usuario_A_intermedio.nombre, usuario_A_intermedio.saldo + monto_B_a_A);
+
+                TransaccionDB tdb2;
+                tdb2.id = db->obtener_siguiente_id_transaccion();
+                tdb2.usuario_origen = usuario_B.nombre;
+                tdb2.usuario_destino = usuario_A.nombre;
+                tdb2.monto = monto_B_a_A;
+                tdb2.tipo = "TRANSFERENCIA_DEADLOCK";
+                tdb2.es_sospechosa = false;
+                tdb2.fecha = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss").toStdString();
+                db->guardar_transaccion(tdb2);
+
+                contador_transacciones++;
+                transacciones_aprobadas++;
+                monto_total_procesado += monto_B_a_A;
+
+                log_demo("   ✔ Completada", "success");
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+            // ========== RESULTADOS ==========
+            auto usuario_A_final = db->obtener_usuario_por_cuenta(cuenta_A);
+            auto usuario_B_final = db->obtener_usuario_por_cuenta(cuenta_B);
+
+            double cambio_A = usuario_A_final.saldo - saldo_antes_A;
+            double cambio_B = usuario_B_final.saldo - saldo_antes_B;
+
             log_demo("", "info");
-            log_demo("📌 Mismo escenario: Cuenta A ($5000) y Cuenta B ($8000)", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            
+            log_demo("📊 RESULTADOS:", "success");
+            log_demo(QString("   %1: $%2 → $%3 (%4$%5)")
+                         .arg(QString::fromStdString(usuario_A_final.nombre))
+                         .arg(saldo_antes_A, 0, 'f', 2)
+                         .arg(usuario_A_final.saldo, 0, 'f', 2)
+                         .arg(cambio_A >= 0 ? "+" : "")
+                         .arg(cambio_A, 0, 'f', 2),
+                     cambio_A >= 0 ? "success" : "warning");
+            log_demo(QString("   %1: $%2 → $%3 (%4$%5)")
+                         .arg(QString::fromStdString(usuario_B_final.nombre))
+                         .arg(saldo_antes_B, 0, 'f', 2)
+                         .arg(usuario_B_final.saldo, 0, 'f', 2)
+                         .arg(cambio_B >= 0 ? "+" : "")
+                         .arg(cambio_B, 0, 'f', 2),
+                     cambio_B >= 0 ? "success" : "warning");
             log_demo("", "info");
-            log_demo("🔧 Solución: std::scoped_lock adquiere AMBOS mutex atómicamente", "success");
-            log_demo("   • Previene deadlock usando algoritmo de ordenamiento", "info");
-            log_demo("   • Si no puede obtener ambos, libera todos", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(800));
-            
-            log_demo("", "info");
-            log_demo("▶️  Thread 1: Usando scoped_lock(mutex_A, mutex_B)", "info");
-            log_demo("   1. Intentando adquirir ambos mutex...", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            log_demo("   2. ✓ Ambos mutex adquiridos atómicamente", "success");
-            log_demo("   3. Transferencia A → B completada ($1000)", "success");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            
-            log_demo("", "info");
-            log_demo("▶️  Thread 2: Usando scoped_lock(mutex_B, mutex_A)", "info");
-            log_demo("   1. Intentando adquirir ambos mutex...", "info");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            log_demo("   2. ⏳ Thread 1 aún tiene los mutex, esperando...", "warning");
-            log_demo("   3. ✓ Thread 1 terminó, mutex liberados", "info");
-            log_demo("   4. ✓ Ambos mutex adquiridos atómicamente", "success");
-            log_demo("   5. Transferencia B → A completada ($500)", "success");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            
-            log_demo("", "info");
-            log_demo("✅ ¡DEADLOCK RESUELTO EXITOSAMENTE!", "success");
-            log_demo("   • Saldo final Cuenta A: $4500", "success");
-            log_demo("   • Saldo final Cuenta B: $8500", "success");
-            log_demo("", "info");
-            log_demo("📚 Resultado: No se formó ciclo de espera. Los hilos esperaron", "success");
-            log_demo("    ordenadamente sin bloqueos mutuos permanentes.", "success");
-            
+            log_demo("💡 Solución: Timeout detectó el deadlock y se usó transferir() seguro", "info");
+
+            cuentas_en_deadlock.reset();
+            deadlock_activo = false;
+
+            QMetaObject::invokeMethod(this, [this]() {
+                actualizar_tabla_usuarios();
+                actualizar_tabla_transacciones();
+                actualizar_estadisticas();
+                log_mensaje("✅ Deadlock resuelto - Consulta las pestañas actualizadas", "success");
+            }, Qt::QueuedConnection);
+
         } catch (const std::exception& e) {
-            log_demo(QString("❌ Error: ") + e.what(), "error");
+            log_demo(QString("❌ Error: %1").arg(e.what()), "error");
         }
-        
-        btn_resolver_deadlock->setEnabled(true);
+
+        btn_demo_deadlock->setEnabled(true);
+        btn_resolver_deadlock->setEnabled(false);
+
     }).detach();
 }
 
@@ -861,4 +969,22 @@ void MainWindow::demostrar_lectores_escritores() {
         btn_demo_lectores_escritores->setEnabled(true);
     }).detach();
 }
+
+std::pair<UsuarioDB, UsuarioDB> MainWindow::obtener_usuarios_aleatorios() {
+    auto usuarios = db->cargar_usuarios();
+    if (usuarios.size() < 2) {
+        throw std::runtime_error("Se necesitan al menos 2 usuarios para la demostración");
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dist(0, usuarios.size() - 1);
+
+    int i1 = dist(gen);
+    int i2 = dist(gen);
+    while (i2 == i1) i2 = dist(gen);
+
+    return {usuarios[i1], usuarios[i2]};
+}
+
 

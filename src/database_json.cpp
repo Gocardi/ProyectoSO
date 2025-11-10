@@ -195,6 +195,21 @@ UsuarioDB DatabaseJSON::obtener_usuario(const std::string& nombre) {
     return UsuarioDB{"", "", -1.0, ""};
 }
 
+
+UsuarioDB DatabaseJSON::obtener_usuario_por_cuenta(const std::string& cuenta_id) {
+    std::lock_guard<std::mutex> lock(mtx);
+
+    auto usuarios = cargar_usuarios();
+    for (const auto& u : usuarios) {
+        if (u.cuenta_id == cuenta_id) {
+            return u;
+        }
+    }
+
+    // Usuario no encontrado
+    return UsuarioDB{"", "", -1.0, ""};
+}
+
 bool DatabaseJSON::usuario_existe(const std::string& nombre) {
     auto usuarios = cargar_usuarios();
     for (const auto& u : usuarios) {

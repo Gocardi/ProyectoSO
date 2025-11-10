@@ -46,6 +46,7 @@ public:
     bool actualizar_saldo(const std::string& nombre, double nuevo_saldo);
     std::vector<UsuarioDB> cargar_usuarios();
     UsuarioDB obtener_usuario(const std::string& nombre);
+    UsuarioDB obtener_usuario_por_cuenta(const std::string& cuenta_id);
     bool usuario_existe(const std::string& nombre);
     
     // Operaciones de transacciones
