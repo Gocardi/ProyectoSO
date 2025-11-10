@@ -97,6 +97,7 @@ private:
     std::shared_ptr<MonitorCuentas> monitor;
     std::shared_ptr<ColaTransacciones> cola;
     std::shared_ptr<ConfiguracionSistema> config;
+    std::shared_ptr<ContextoFraude> contexto_fraude;
     
     // Control de estado
     bool procesamiento_activo;

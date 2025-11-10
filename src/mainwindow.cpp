@@ -18,6 +18,7 @@ MainWindow::MainWindow(QWidget *parent)
     monitor = std::make_shared<MonitorCuentas>();
     cola = std::make_shared<ColaTransacciones>(10);
     config = std::make_shared<ConfiguracionSistema>();
+    contexto_fraude = std::make_shared<ContextoFraude>(); // Nuevo contexto compartido
     
     // Configurar UI
     setup_ui();
@@ -323,97 +324,100 @@ void MainWindow::seleccionar_usuario(int row, int column) {
 }
 
 void MainWindow::enviar_transaccion() {
-    QString origen = input_usuario_origen->text().trimmed();
-    QString destino = input_usuario_destino->text().trimmed();
+    // 1. Obtener los datos de la interfaz de usuario
+    QString origen_str = input_usuario_origen->text().trimmed();
+    QString destino_str = input_usuario_destino->text().trimmed();
     double monto = input_monto->value();
-    
-    if (origen.isEmpty() || destino.isEmpty()) {
-        QMessageBox::warning(this, "Error", "Debe especificar origen y destino");
+
+    // 2. Validaciones básicas de la entrada
+    if (origen_str.isEmpty() || destino_str.isEmpty()) {
+        QMessageBox::warning(this, "Error de Entrada", "Debe especificar un origen y un destino.");
         return;
     }
-    
-    if (origen == destino) {
-        QMessageBox::warning(this, "Error", "El origen y destino no pueden ser iguales");
+
+    if (origen_str == destino_str) {
+        QMessageBox::warning(this, "Error de Lógica", "El origen y el destino no pueden ser iguales.");
         return;
     }
-    
-    if (!db->usuario_existe(origen.toStdString()) || !db->usuario_existe(destino.toStdString())) {
-        QMessageBox::warning(this, "Error", "Uno o ambos usuarios no existen");
+
+    if (!db->usuario_existe(origen_str.toStdString()) || !db->usuario_existe(destino_str.toStdString())) {
+        QMessageBox::warning(this, "Error de Validación", "Uno o ambos usuarios no existen en la base de datos.");
         return;
     }
-    
-    // Obtener cuenta_ids
-    auto usuario_origen = db->obtener_usuario(origen.toStdString());
-    auto usuario_destino = db->obtener_usuario(destino.toStdString());
-    
+
+    // 3. Obtener los datos completos de los usuarios desde la BD
+    auto usuario_origen = db->obtener_usuario(origen_str.toStdString());
+    auto usuario_destino = db->obtener_usuario(destino_str.toStdString());
+
     if (usuario_origen.saldo < monto) {
-        QMessageBox::warning(this, "Fondos Insuficientes", 
-            QString("El usuario %1 solo tiene $%2").arg(origen).arg(usuario_origen.saldo, 0, 'f', 2));
+        QMessageBox::warning(this, "Fondos Insuficientes",
+                             QString("El usuario %1 solo tiene $%2.").arg(origen_str).arg(usuario_origen.saldo, 0, 'f', 2));
         return;
     }
-    
-    // Crear transacción
+
+    // 4. Crear el objeto Transaccion (del modelo de datos en memoria)
     Transaccion t;
     t.id = db->obtener_siguiente_id_transaccion();
-    t.cliente_id = origen.toStdString();
+    t.cliente_id = usuario_origen.nombre;
     t.tipo = "TRANSFERENCIA";
     t.monto = monto;
     t.cuenta_origen = usuario_origen.cuenta_id;
     t.cuenta_destino = usuario_destino.cuenta_id;
-    
-    // Determinar si es sospechosa
-    if (monto > 8000 || (t.tipo == "RETIRO" && monto > 5000)) {
-        t.es_sospechosa = true;
-        transacciones_sospechosas++;
-        log_mensaje("⚠️ Transacción sospechosa detectada: $" + QString::number(monto, 'f', 2), "warning");
+    // t.timestamp se inicializa automáticamente en su constructor
+
+    // 5. --- ¡LA LÓGICA CLAVE MEJORADA! ---
+    // Se utiliza el contexto de fraude compartido para determinar si la transacción es sospechosa.
+    // Esto centraliza la lógica de fraude para operaciones manuales y automáticas.
+    bool es_sospechosa = contexto_fraude->analizarYActualizar(t);
+    t.es_sospechosa = es_sospechosa; // Actualizamos el objeto de transacción
+
+    if (t.es_sospechosa) {
+        transacciones_sospechosas++; // Actualizamos el contador de la UI
+        log_mensaje("! Transacción sospechosa detectada (Regla de Velocidad/Frecuencia): $" + QString::number(monto, 'f', 2), "warning");
     }
-    
-    // Agregar a cola
-    try {
-        cola->producir(t);
+
+    // 6. Procesar la transacción inmediatamente para dar respuesta a la UI
+    // Usamos el Monitor para garantizar una transferencia segura (atómica)
+    bool exito = monitor->transferir(usuario_origen.cuenta_id, usuario_destino.cuenta_id, monto);
+
+    if (exito) {
+        // Si la transferencia en el monitor fue exitosa, persistimos los cambios
+
+        // 6.1. Actualizar saldos en la base de datos JSON
+        db->actualizar_saldo(usuario_origen.nombre, usuario_origen.saldo - monto);
+        db->actualizar_saldo(usuario_destino.nombre, usuario_destino.saldo + monto);
+
+        // 6.2. Guardar la transacción en la base de datos JSON
+        TransaccionDB tdb;
+        tdb.id = t.id;
+        tdb.usuario_origen = t.cliente_id;
+        tdb.usuario_destino = destino_str.toStdString();
+        tdb.monto = t.monto;
+        tdb.tipo = t.tipo;
+        tdb.es_sospechosa = t.es_sospechosa; // ¡Se guarda el valor correcto de sospecha!
+        tdb.fecha = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss").toStdString();
+        db->guardar_transaccion(tdb);
+
+        // 6.3. Actualizar contadores y logs de la UI
+        contador_transacciones++;
+        transacciones_aprobadas++;
+        monto_total_procesado += monto;
+
+        log_mensaje(QString("✓ Transferencia exitosa: %1 → %2 ($%3)")
+                        .arg(origen_str).arg(destino_str).arg(monto, 0, 'f', 2), "success");
+        QMessageBox::information(this, "Éxito", "Transacción completada correctamente.");
         
-        // Procesar inmediatamente
-        bool exito = monitor->transferir(usuario_origen.cuenta_id, usuario_destino.cuenta_id, monto);
-        
-        if (exito) {
-            // Actualizar saldos en BD
-            db->actualizar_saldo(origen.toStdString(), usuario_origen.saldo - monto);
-            db->actualizar_saldo(destino.toStdString(), usuario_destino.saldo + monto);
-            
-            // Guardar transacción
-            TransaccionDB tdb;
-            tdb.id = t.id;
-            tdb.usuario_origen = origen.toStdString();
-            tdb.usuario_destino = destino.toStdString();
-            tdb.monto = monto;
-            tdb.tipo = "TRANSFERENCIA";
-            tdb.es_sospechosa = t.es_sospechosa;
-            tdb.fecha = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss").toStdString();
-            
-            db->guardar_transaccion(tdb);
-            
-            contador_transacciones++;
-            transacciones_aprobadas++;
-            monto_total_procesado += monto;
-            
-            actualizar_tabla_usuarios();
-            actualizar_tabla_transacciones();
-            
-            input_usuario_origen->clear();
-            input_usuario_destino->clear();
-            input_monto->setValue(100.0);
-            
-            log_mensaje(QString("✅ Transferencia exitosa: %1 → %2 ($%3)")
-                .arg(origen).arg(destino).arg(monto, 0, 'f', 2), "success");
-            
-            QMessageBox::information(this, "Éxito", "Transacción completada correctamente");
-        } else {
-            log_mensaje("❌ Error en la transferencia", "error");
-            QMessageBox::critical(this, "Error", "No se pudo completar la transacción");
-        }
-    } catch (const std::exception& e) {
-        log_mensaje(QString("❌ Excepción: ") + e.what(), "error");
-        QMessageBox::critical(this, "Error", QString("Error: ") + e.what());
+        // 6.4. Limpiar la UI y actualizar las tablas
+        actualizar_tabla_usuarios();
+        actualizar_tabla_transacciones();
+        input_usuario_origen->clear();
+        input_usuario_destino->clear();
+        input_monto->setValue(100.0);
+
+    } else {
+        // Si la transferencia falló en el monitor (aunque es poco probable con las validaciones previas)
+        log_mensaje("X Error inesperado en la transferencia a través del monitor.", "error");
+        QMessageBox::critical(this, "Error", "No se pudo completar la transacción a nivel del monitor.");
     }
 }
 

@@ -81,7 +81,7 @@ public:
         if (ultima_transaccion_usuario.count(usuario)) {
             auto ultima_vez = ultima_transaccion_usuario.at(usuario);
             auto duracion = std::chrono::duration_cast<std::chrono::seconds>(ahora - ultima_vez);
-            if (duracion.count() < 2) {
+            if (duracion.count() < 20) {
                 es_sospechosa = true;
             }
         }
