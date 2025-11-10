@@ -1,0 +1,39 @@
+# Archivos de compilación y directorios
+build/
+build-*/
+debug/
+release/
+
+# Ejecutables
+*.exe
+*.out
+*.app
+
+# Archivos de objeto y bibliotecas
+*.o
+*.obj
+*.dll
+*.so
+*.a
+*.lib
+*.dylib
+
+# Archivos de proyecto específicos del usuario de Qt/Creator
+*.user
+*.pro.user
+*.creator.user
+
+# Archivos de caché y de IDEs
+.cache/
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.VC.opendb
+
+# Otros
+*~
+*.swp
