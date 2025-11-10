@@ -106,6 +106,7 @@ private:
     std::shared_ptr<ColaTransacciones> cola;
     std::shared_ptr<ConfiguracionSistema> config;
     std::shared_ptr<ContextoFraude> contexto_fraude;
+    std::shared_ptr<std::shared_mutex> mutex_db;
 
     // === Estado general ===
     bool procesamiento_activo;
