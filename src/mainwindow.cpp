@@ -23,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent)
     monitor = std::make_shared<MonitorCuentas>();
     cola = std::make_shared<ColaTransacciones>(10);
     config = std::make_shared<ConfiguracionSistema>();
-   // contexto_fraude = std::make_shared<ContextoFraude>(); // Nuevo contexto compartido
+    contexto_fraude = std::make_shared<ContextoFraude>(); // Nuevo contexto compartido
 
     // Configurar UI
     setup_ui();
@@ -374,10 +374,11 @@ void MainWindow::enviar_transaccion() {
     // 5. --- ¡LA LÓGICA CLAVE MEJORADA! ---
     // Se utiliza el contexto de fraude compartido para determinar si la transacción es sospechosa.
     // Esto centraliza la lógica de fraude para operaciones manuales y automáticas.
-    if (monto > 8000 || (t.tipo == "RETIRO" && monto > 5000)) {
-        t.es_sospechosa = true;
-    } else {
-        t.es_sospechosa = false;
+    t.es_sospechosa = contexto_fraude->analizarYActualizar(t);
+
+    if (t.es_sospechosa) {
+        transacciones_sospechosas++;
+        log_mensaje("⚠️ Transacción sospechosa detectada (Velocidad/Frecuencia): $" + QString::number(monto, 'f', 2), "warning");
     }
 
     if (t.es_sospechosa) {
