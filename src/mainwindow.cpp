@@ -70,6 +70,7 @@ void MainWindow::setup_tab_usuarios() {
     form_layout->addWidget(new QLabel("Saldo Inicial:"));
     input_saldo_inicial = new QDoubleSpinBox();
     input_saldo_inicial->setRange(0, 1000000);
+    input_saldo_inicial->setSingleStep(1000.0);
     input_saldo_inicial->setValue(10000.0);
     input_saldo_inicial->setPrefix("$");
     form_layout->addWidget(input_saldo_inicial);
