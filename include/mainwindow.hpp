@@ -13,6 +13,8 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
+#include <QComboBox>
+#include <QCompleter>
 #include <QTabWidget>
 #include <memory>
 #include <optional>
@@ -43,6 +45,7 @@ private slots:
     // Transacciones
     void enviar_transaccion();
     void actualizar_tabla_transacciones();
+    void validar_seleccion_usuarios();
 
     // Estadísticas
     void actualizar_estadisticas();
@@ -71,8 +74,8 @@ private:
 
     // === Tab Transacciones ===
     QTableWidget *tabla_transacciones;
-    QLineEdit *input_usuario_origen;
-    QLineEdit *input_usuario_destino;
+    QComboBox *combo_usuario_origen;
+    QComboBox *combo_usuario_destino;
     QDoubleSpinBox *input_monto;
     QPushButton *btn_enviar_transaccion;
     QPushButton *btn_actualizar_transacciones;

@@ -118,16 +118,37 @@ void MainWindow::setup_tab_transacciones() {
     QGroupBox *form_group = new QGroupBox("Nueva Transferencia");
     QHBoxLayout *form_layout = new QHBoxLayout();
 
+    // ORIGEN (ComboBox)
     form_layout->addWidget(new QLabel("Origen:"));
-    input_usuario_origen = new QLineEdit();
-    input_usuario_origen->setPlaceholderText("Nombre usuario origen");
-    form_layout->addWidget(input_usuario_origen);
+    combo_usuario_origen = new QComboBox();
+    combo_usuario_origen->setEditable(true);
+    combo_usuario_origen->setInsertPolicy(QComboBox::NoInsert);
+    combo_usuario_origen->setPlaceholderText("Selecciona usuario origen");
+    combo_usuario_origen->setMinimumWidth(150);
 
+    // Autocompletado
+    combo_usuario_origen->setCompleter(new QCompleter(combo_usuario_origen->model(), combo_usuario_origen));
+    combo_usuario_origen->completer()->setCaseSensitivity(Qt::CaseInsensitive);
+    combo_usuario_origen->completer()->setCompletionMode(QCompleter::PopupCompletion);
+
+    form_layout->addWidget(combo_usuario_origen);
+
+    // DESTINO (ComboBox)
     form_layout->addWidget(new QLabel("Destino:"));
-    input_usuario_destino = new QLineEdit();
-    input_usuario_destino->setPlaceholderText("Nombre usuario destino");
-    form_layout->addWidget(input_usuario_destino);
+    combo_usuario_destino = new QComboBox();
+    combo_usuario_destino->setEditable(true);
+    combo_usuario_destino->setInsertPolicy(QComboBox::NoInsert);
+    combo_usuario_destino->setPlaceholderText("Selecciona usuario destino");
+    combo_usuario_destino->setMinimumWidth(150);
 
+    // Autocompletado
+    combo_usuario_destino->setCompleter(new QCompleter(combo_usuario_destino->model(), combo_usuario_destino));
+    combo_usuario_destino->completer()->setCaseSensitivity(Qt::CaseInsensitive);
+    combo_usuario_destino->completer()->setCompletionMode(QCompleter::PopupCompletion);
+
+    form_layout->addWidget(combo_usuario_destino);
+
+    // MONTO
     form_layout->addWidget(new QLabel("Monto:"));
     input_monto = new QDoubleSpinBox();
     input_monto->setRange(0.01, 100000);
@@ -135,6 +156,7 @@ void MainWindow::setup_tab_transacciones() {
     input_monto->setPrefix("$");
     form_layout->addWidget(input_monto);
 
+    // BOTÓN ENVIAR
     btn_enviar_transaccion = new QPushButton("💰 Enviar Transacción");
     btn_enviar_transaccion->setStyleSheet("background-color: #2196F3; color: white; padding: 5px 15px;");
     connect(btn_enviar_transaccion, &QPushButton::clicked, this, &MainWindow::enviar_transaccion);
@@ -158,6 +180,12 @@ void MainWindow::setup_tab_transacciones() {
     layout->addWidget(btn_actualizar_transacciones);
 
     tabs->addTab(tab_transacciones_widget, "💸 Transacciones");
+
+    // ⚠️ IMPORTANTE: Conectar evento para validar selección
+    connect(combo_usuario_origen, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::validar_seleccion_usuarios);
+    connect(combo_usuario_destino, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::validar_seleccion_usuarios);
 }
 
 void MainWindow::setup_tab_estadisticas() {
@@ -306,7 +334,12 @@ void MainWindow::actualizar_tabla_usuarios() {
 
     tabla_usuarios->setRowCount(0);
 
+    // Limpiar combos
+    combo_usuario_origen->clear();
+    combo_usuario_destino->clear();
+
     for (const auto& usuario : usuarios) {
+        // Actualizar tabla
         int row = tabla_usuarios->rowCount();
         tabla_usuarios->insertRow(row);
 
@@ -318,31 +351,48 @@ void MainWindow::actualizar_tabla_usuarios() {
         tabla_usuarios->setItem(row, 2, item_saldo);
 
         tabla_usuarios->setItem(row, 3, new QTableWidgetItem(QString::fromStdString(usuario.fecha_creacion)));
+
+        // ✅ AGREGAR a los ComboBox
+        combo_usuario_origen->addItem(QString::fromStdString(usuario.nombre));
+        combo_usuario_destino->addItem(QString::fromStdString(usuario.nombre));
     }
 
     tabla_usuarios->resizeColumnsToContents();
 }
 
+
+// 3. ACTUALIZAR seleccionar_usuario() para usar el combo:
+
 void MainWindow::seleccionar_usuario(int row, int column) {
     Q_UNUSED(column);
     QString nombre = tabla_usuarios->item(row, 0)->text();
-    input_usuario_origen->setText(nombre);
+
+    // Buscar y seleccionar en el combo
+    int index = combo_usuario_origen->findText(nombre);
+    if (index != -1) {
+        combo_usuario_origen->setCurrentIndex(index);
+    }
 }
 
+
+// 4. ACTUALIZAR enviar_transaccion() para usar currentText():
+
 void MainWindow::enviar_transaccion() {
-    // 1. Obtener los datos de la interfaz de usuario
-    QString origen_str = input_usuario_origen->text().trimmed();
-    QString destino_str = input_usuario_destino->text().trimmed();
+    // 1. Obtener los datos de los ComboBox (CAMBIO AQUÍ)
+    QString origen_str = combo_usuario_origen->currentText().trimmed();
+    QString destino_str = combo_usuario_destino->currentText().trimmed();
     double monto = input_monto->value();
 
     // 2. Validaciones básicas de la entrada
     if (origen_str.isEmpty() || destino_str.isEmpty()) {
-        QMessageBox::warning(this, "Error de Entrada", "Debe especificar un origen y un destino.");
+        QMessageBox::warning(this, "Error de Entrada", "Debe seleccionar un origen y un destino.");
         return;
     }
 
     if (origen_str == destino_str) {
-        QMessageBox::warning(this, "Error de Lógica", "El origen y el destino no pueden ser iguales.");
+        QMessageBox::warning(this, "Error de Lógica",
+                             "El origen y el destino no pueden ser iguales.\n\n"
+                             "Por favor, selecciona usuarios diferentes.");
         return;
     }
 
@@ -361,7 +411,7 @@ void MainWindow::enviar_transaccion() {
         return;
     }
 
-    // 4. Crear el objeto Transaccion (del modelo de datos en memoria)
+    // 4. Crear el objeto Transaccion
     Transaccion t;
     t.id = db->obtener_siguiente_id_transaccion();
     t.cliente_id = usuario_origen.nombre;
@@ -369,11 +419,8 @@ void MainWindow::enviar_transaccion() {
     t.monto = monto;
     t.cuenta_origen = usuario_origen.cuenta_id;
     t.cuenta_destino = usuario_destino.cuenta_id;
-    // t.timestamp se inicializa automáticamente en su constructor
 
-    // 5. --- ¡LA LÓGICA CLAVE MEJORADA! ---
-    // Se utiliza el contexto de fraude compartido para determinar si la transacción es sospechosa.
-    // Esto centraliza la lógica de fraude para operaciones manuales y automáticas.
+    // 5. Usar el contexto de fraude compartido para análisis avanzado
     t.es_sospechosa = contexto_fraude->analizarYActualizar(t);
 
     if (t.es_sospechosa) {
@@ -381,34 +428,26 @@ void MainWindow::enviar_transaccion() {
         log_mensaje("⚠️ Transacción sospechosa detectada (Velocidad/Frecuencia): $" + QString::number(monto, 'f', 2), "warning");
     }
 
-    if (t.es_sospechosa) {
-        transacciones_sospechosas++; // Actualizamos el contador de la UI
-        log_mensaje("! Transacción sospechosa detectada (Regla de Velocidad/Frecuencia): $" + QString::number(monto, 'f', 2), "warning");
-    }
-
-    // 6. Procesar la transacción inmediatamente para dar respuesta a la UI
-    // Usamos el Monitor para garantizar una transferencia segura (atómica)
+    // 6. Procesar la transacción
     bool exito = monitor->transferir(usuario_origen.cuenta_id, usuario_destino.cuenta_id, monto);
 
     if (exito) {
-        // Si la transferencia en el monitor fue exitosa, persistimos los cambios
-
-        // 6.1. Actualizar saldos en la base de datos JSON
+        // 6.1. Actualizar saldos
         db->actualizar_saldo(usuario_origen.nombre, usuario_origen.saldo - monto);
         db->actualizar_saldo(usuario_destino.nombre, usuario_destino.saldo + monto);
 
-        // 6.2. Guardar la transacción en la base de datos JSON
+        // 6.2. Guardar transacción
         TransaccionDB tdb;
         tdb.id = t.id;
         tdb.usuario_origen = t.cliente_id;
         tdb.usuario_destino = destino_str.toStdString();
         tdb.monto = t.monto;
         tdb.tipo = t.tipo;
-        tdb.es_sospechosa = t.es_sospechosa; // ¡Se guarda el valor correcto de sospecha!
+        tdb.es_sospechosa = t.es_sospechosa;
         tdb.fecha = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss").toStdString();
         db->guardar_transaccion(tdb);
 
-        // 6.3. Actualizar contadores y logs de la UI
+        // 6.3. Actualizar contadores
         contador_transacciones++;
         transacciones_aprobadas++;
         monto_total_procesado += monto;
@@ -417,15 +456,14 @@ void MainWindow::enviar_transaccion() {
                         .arg(origen_str).arg(destino_str).arg(monto, 0, 'f', 2), "success");
         QMessageBox::information(this, "Éxito", "Transacción completada correctamente.");
 
-        // 6.4. Limpiar la UI y actualizar las tablas
+        // 6.4. Limpiar y actualizar (CAMBIO AQUÍ)
         actualizar_tabla_usuarios();
         actualizar_tabla_transacciones();
-        input_usuario_origen->clear();
-        input_usuario_destino->clear();
+        combo_usuario_origen->setCurrentIndex(-1); // Limpiar selección
+        combo_usuario_destino->setCurrentIndex(-1);
         input_monto->setValue(100.0);
 
     } else {
-        // Si la transferencia falló en el monitor (aunque es poco probable con las validaciones previas)
         log_mensaje("X Error inesperado en la transferencia a través del monitor.", "error");
         QMessageBox::critical(this, "Error", "No se pudo completar la transacción a nivel del monitor.");
     }
@@ -468,6 +506,21 @@ void MainWindow::actualizar_estadisticas() {
     lbl_transacciones_sospechosas->setText(QString("⚠️ Sospechosas: %1").arg(transacciones_sospechosas));
     lbl_monto_total->setText(QString("💰 Monto Total Procesado: $%1").arg(monto_total_procesado, 0, 'f', 2));
     lbl_cola_size->setText(QString("📦 Transacciones en Cola: %1/10").arg(cola->obtener_tamanio()));
+}
+
+
+void MainWindow::validar_seleccion_usuarios() {
+    QString origen = combo_usuario_origen->currentText();
+    QString destino = combo_usuario_destino->currentText();
+
+    // Si ambos están seleccionados y son iguales, mostrar advertencia
+    if (!origen.isEmpty() && !destino.isEmpty() && origen == destino) {
+        combo_usuario_destino->setStyleSheet("QComboBox { border: 2px solid red; }");
+        btn_enviar_transaccion->setEnabled(false);
+    } else {
+        combo_usuario_destino->setStyleSheet("");
+        btn_enviar_transaccion->setEnabled(true);
+    }
 }
 
 void MainWindow::iniciar_procesamiento() {
